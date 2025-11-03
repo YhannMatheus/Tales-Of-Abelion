@@ -1,18 +1,20 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// Módulo de UI responsável pela exibição de energia do player.
-/// Atualiza barra de energia, números, etc.
+/// Atualiza slider de energia, números, etc.
+/// Compatível com UI: Canvas/GUI Container/Status Background/Slider (Energia)
 /// </summary>
 public class PlayerEnergyUI : MonoBehaviour
 {
     [Header("UI Elements")]
-    [Tooltip("Barra de energia (Image com fillAmount)")]
-    [SerializeField] private Image energyBar;
+    [Tooltip("Slider de energia (UI Slider)")]
+    [SerializeField] private Slider energySlider;
     
     [Tooltip("Texto mostrando energia atual/máxima")]
-    [SerializeField] private Text energyText;
+    [SerializeField] private TextMeshProUGUI energyText;
 
     [Header("Configurações")]
     [Tooltip("Animar a barra de energia suavemente?")]
@@ -21,37 +23,40 @@ public class PlayerEnergyUI : MonoBehaviour
     [Tooltip("Velocidade da animação da barra")]
     [SerializeField] private float transitionSpeed = 5f;
 
-    private float targetFillAmount = 1f;
-    private float currentFillAmount = 1f;
+    private float targetValue = 1f;
+    private float currentValue = 1f;
 
     private void Update()
     {
-        if (smoothTransition && energyBar != null)
+        if (smoothTransition && energySlider != null)
         {
             // Anima suavemente para o valor alvo
-            currentFillAmount = Mathf.Lerp(currentFillAmount, targetFillAmount, Time.deltaTime * transitionSpeed);
-            energyBar.fillAmount = currentFillAmount;
+            currentValue = Mathf.Lerp(currentValue, targetValue, Time.deltaTime * transitionSpeed);
+            energySlider.value = currentValue;
         }
     }
 
     /// <summary>
     /// Atualiza a barra de energia
     /// </summary>
-    public void UpdateEnergy(float currentEnergy, float maxEnergy)
+    public void UpdateEnergy(int currentEnergy, int maxEnergy)
     {
         if (maxEnergy <= 0) return;
 
-        targetFillAmount = Mathf.Clamp01(currentEnergy / maxEnergy);
+        targetValue = Mathf.Clamp01((float)currentEnergy / maxEnergy);
 
-        if (!smoothTransition && energyBar != null)
+        if (energySlider != null)
         {
-            energyBar.fillAmount = targetFillAmount;
-            currentFillAmount = targetFillAmount;
+            if (!smoothTransition)
+            {
+                energySlider.value = targetValue;
+                currentValue = targetValue;
+            }
         }
 
         if (energyText != null)
         {
-            energyText.text = $"{Mathf.CeilToInt(currentEnergy)} / {Mathf.CeilToInt(maxEnergy)}";
+            energyText.text = $"{currentEnergy} / {maxEnergy}";
         }
     }
 }

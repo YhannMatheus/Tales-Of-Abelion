@@ -6,7 +6,6 @@ public class ReviveToken : MonoBehaviour
     public float interactionRange = 2f;
     public float reviveTime = 3f;
     public float tokenLifetime = 60f;
-    public KeyCode interactKey = KeyCode.E;
 
     [Header("Visual Feedback")]
     public GameObject interactionPrompt;
@@ -24,6 +23,7 @@ public class ReviveToken : MonoBehaviour
     private bool _isReviving;
     private float _reviveProgress;
     private Character _playerReviving;
+    private InputManager _inputManager;
 
     public bool IsReviving => _isReviving;
     public float ReviveProgress => _reviveProgress;
@@ -32,6 +32,12 @@ public class ReviveToken : MonoBehaviour
     {
         _spawnTime = Time.time;
         _initialPosition = transform.position;
+
+        _inputManager = InputManager.Instance;
+        if (_inputManager == null)
+        {
+            Debug.LogWarning("[ReviveToken] InputManager não encontrado! O sistema de revive pode não funcionar.");
+        }
 
         if (interactionPrompt != null)
         {
@@ -77,9 +83,9 @@ public class ReviveToken : MonoBehaviour
         UpdateVisuals();
         DetectNearbyPlayer();
 
-        if (_isPlayerNearby && !_isReviving)
+        if (_isPlayerNearby && !_isReviving && _inputManager != null)
         {
-            if (Input.GetKeyDown(interactKey))
+            if (_inputManager.interactButton)
             {
                 StartRevive();
             }
@@ -148,7 +154,7 @@ public class ReviveToken : MonoBehaviour
             return;
         }
 
-        if (Input.GetKey(interactKey))
+        if (_inputManager != null && _inputManager.interactButtonHold)
         {
             _reviveProgress += Time.deltaTime;
 
@@ -213,7 +219,7 @@ public class ReviveToken : MonoBehaviour
             }
             else if (_isPlayerNearby)
             {
-                info += $"Pressione {interactKey} para reviver";
+                info += "Pressione E (ou Botão Direito) para reviver";
             }
             else
             {

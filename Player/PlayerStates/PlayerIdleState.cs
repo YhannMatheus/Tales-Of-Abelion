@@ -1,9 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Estado Idle - Player parado, aguardando input.
-/// Permite todas as ações (mover, atacar, interagir).
-/// </summary>
 public class PlayerIdleState : PlayerStateBase
 {
     public PlayerIdleState(PlayerStateMachine stateMachine, PlayerManager player) 
@@ -13,10 +9,8 @@ public class PlayerIdleState : PlayerStateBase
 
     public override void EnterState()
     {
-        // Para o movimento
         player.Motor.Stop();
 
-        // Toca animação de idle (se tiver)
         player.Animator?.UpdateMovementSpeed(0f, player.Motor.IsGrounded);
 
         Debug.Log("[IdleState] Entrou no estado Idle");
@@ -24,7 +18,6 @@ public class PlayerIdleState : PlayerStateBase
 
     public override void UpdateState()
     {
-        // Transição para Moving se houver input de movimento
         Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
         
         if (moveInput.magnitude > player.MovementThreshold)
@@ -33,14 +26,12 @@ public class PlayerIdleState : PlayerStateBase
             return;
         }
 
-        // Transição para Attacking se apertar botão de ataque
         if (player.Input.attackInput)
         {
             SwitchState(new PlayerAttackingState(stateMachine, player));
             return;
         }
 
-        // Verifica inputs de habilidades (Q, E, R, etc.)
         int abilitySlot = CheckAbilityInputs();
         if (abilitySlot != -1)
         {
@@ -48,10 +39,8 @@ public class PlayerIdleState : PlayerStateBase
             return;
         }
 
-        // Transição para Interacting se apertar botão de interação
         if (player.Input.interactButton)
         {
-            // Verifica se há algo para interagir
             GameObject clickedObject = player.Mouse.GetClickedObject();
             if (clickedObject != null)
             {
@@ -62,7 +51,6 @@ public class PlayerIdleState : PlayerStateBase
                     
                     if (distance <= eventComponent.minDistanceToTrigger)
                     {
-                        // Rotaciona para o objeto antes de interagir (se configurado)
                         if (player.AutoRotateOnInteract)
                         {
                             player.Motor.RotateToPosition(player.Mouse.GetMousePosition());
@@ -74,9 +62,6 @@ public class PlayerIdleState : PlayerStateBase
         }
     }
 
-    /// <summary>
-    /// Verifica quais teclas de habilidade foram pressionadas
-    /// </summary>
     private int CheckAbilityInputs()
     {
         if (player.Input.ability1Input) return 1;
@@ -91,21 +76,14 @@ public class PlayerIdleState : PlayerStateBase
         return -1; // Nenhuma habilidade pressionada
     }
 
-    /// <summary>
-    /// Tenta usar habilidade no slot especificado
-    /// </summary>
     private void TryUseAbility(int slotIndex)
     {
-        // Valida slot
         if (slotIndex < 0 || slotIndex >= player.Ability.SkillSlots.Length) return;
 
         var slot = player.Ability.SkillSlots[slotIndex];
         if (slot == null || slot.AssignedAbility == null) return;
-
-        // Verifica se pode usar (cooldown, charges, etc.)
         if (!slot.CanUse()) return;
 
-        // Cria contexto da habilidade
         var context = new AbilityContext
         {
             Caster = player.gameObject,
@@ -114,14 +92,12 @@ public class PlayerIdleState : PlayerStateBase
             CastStartPosition = player.transform.position
         };
 
-        // Se tem cast time, vai para CastingState
         if (slot.AssignedAbility.castTime > 0f)
         {
             SwitchState(new PlayerCastingState(stateMachine, player, slotIndex, context, slot.AssignedAbility.castTime));
         }
         else
         {
-            // Habilidade instantânea - executa direto
             player.Animator?.TriggerAbility(slotIndex);
             player.Ability.TryUseAbilityInSlot(slotIndex, context);
         }
@@ -133,8 +109,6 @@ public class PlayerIdleState : PlayerStateBase
     }
 
     // ========== Permissões ==========
-    // No estado Idle, player pode fazer tudo
-
     public override bool CanMove() => true;
     public override bool CanAttack() => true;
     public override bool CanUseAbility() => true;

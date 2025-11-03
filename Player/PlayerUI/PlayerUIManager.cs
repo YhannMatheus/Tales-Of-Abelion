@@ -24,6 +24,7 @@ public class PlayerUIManager : MonoBehaviour
     [SerializeField] private PlayerDeathUI deathUI;
     [SerializeField] private PlayerHealthUI healthUI;
     [SerializeField] private PlayerEnergyUI energyUI;
+    [SerializeField] private PlayerExperienceUI experienceUI;
     [SerializeField] private PlayerAbilityUI abilityUI;
     [SerializeField] private PlayerBuffUI buffUI;
 
@@ -63,13 +64,18 @@ public class PlayerUIManager : MonoBehaviour
             character.OnHealthChanged += HandleHealthChanged;
             character.OnEnergyChanged += HandleEnergyChanged;
             character.OnLevelUp += HandleLevelUp;
+            character.OnExperienceGained += HandleExperienceGained;
         }
 
-        // Pode subscrever a eventos do PlayerManager também se necessário
-        // if (playerManager != null && playerManager.StateMachine != null)
-        // {
-        //     playerManager.StateMachine.OnStateChanged += HandleStateChanged;
-        // }
+        // Inicializa PlayerAbilityUI se disponível
+        if (abilityUI != null && playerManager != null)
+        {
+            var abilityManager = playerManager.GetComponent<PlayerAbilityManager>();
+            if (abilityManager != null)
+            {
+                abilityUI.Initialize(abilityManager);
+            }
+        }
     }
 
     /// <summary>
@@ -84,6 +90,7 @@ public class PlayerUIManager : MonoBehaviour
             character.OnHealthChanged -= HandleHealthChanged;
             character.OnEnergyChanged -= HandleEnergyChanged;
             character.OnLevelUp -= HandleLevelUp;
+            character.OnExperienceGained -= HandleExperienceGained;
         }
     }
 
@@ -129,11 +136,29 @@ public class PlayerUIManager : MonoBehaviour
     {
         Debug.Log($"[PlayerUIManager] Player subiu para level {newLevel}");
         
+        // Efeito visual de level up na barra de XP
+        if (experienceUI != null)
+        {
+            experienceUI.ShowLevelUpEffect();
+        }
+        
         // Pode mostrar notificação de level up, efeitos, etc.
         // if (levelUpUI != null)
         // {
         //     levelUpUI.ShowLevelUpNotification(newLevel);
         // }
+    }
+
+    private void HandleExperienceGained(int experienceGained)
+    {
+        Debug.Log($"[PlayerUIManager] Player ganhou {experienceGained} XP");
+        
+        // Atualiza a barra de experiência
+        if (experienceUI != null && character != null)
+        {
+            // TODO: Verificar se Character tem propriedades de XP
+            // experienceUI.UpdateExperience(character.Data.currentExperience, character.Data.xpToNextLevel);
+        }
     }
 
     // ========== Métodos Públicos para Acesso Externo ==========

@@ -1,18 +1,20 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
 /// Módulo de UI responsável pela exibição de vida do player.
-/// Atualiza barra de vida, números, etc.
+/// Atualiza slider de vida, números, etc.
+/// Compatível com UI: Canvas/GUI Container/Status Background/Slider (Vida)
 /// </summary>
 public class PlayerHealthUI : MonoBehaviour
 {
     [Header("UI Elements")]
-    [Tooltip("Barra de vida (Image com fillAmount)")]
-    [SerializeField] private Image healthBar;
+    [Tooltip("Slider de vida (UI Slider)")]
+    [SerializeField] private Slider healthSlider;
     
     [Tooltip("Texto mostrando vida atual/máxima")]
-    [SerializeField] private Text healthText;
+    [SerializeField] private TextMeshProUGUI healthText;
 
     [Header("Configurações")]
     [Tooltip("Animar a barra de vida suavemente?")]
@@ -21,37 +23,40 @@ public class PlayerHealthUI : MonoBehaviour
     [Tooltip("Velocidade da animação da barra")]
     [SerializeField] private float transitionSpeed = 5f;
 
-    private float targetFillAmount = 1f;
-    private float currentFillAmount = 1f;
+    private float targetValue = 1f;
+    private float currentValue = 1f;
 
     private void Update()
     {
-        if (smoothTransition && healthBar != null)
+        if (smoothTransition && healthSlider != null)
         {
             // Anima suavemente para o valor alvo
-            currentFillAmount = Mathf.Lerp(currentFillAmount, targetFillAmount, Time.deltaTime * transitionSpeed);
-            healthBar.fillAmount = currentFillAmount;
+            currentValue = Mathf.Lerp(currentValue, targetValue, Time.deltaTime * transitionSpeed);
+            healthSlider.value = currentValue;
         }
     }
 
     /// <summary>
     /// Atualiza a barra de vida
     /// </summary>
-    public void UpdateHealth(float currentHealth, float maxHealth)
+    public void UpdateHealth(int currentHealth, int maxHealth)
     {
         if (maxHealth <= 0) return;
 
-        targetFillAmount = Mathf.Clamp01(currentHealth / maxHealth);
+        targetValue = Mathf.Clamp01((float)currentHealth / maxHealth);
 
-        if (!smoothTransition && healthBar != null)
+        if (healthSlider != null)
         {
-            healthBar.fillAmount = targetFillAmount;
-            currentFillAmount = targetFillAmount;
+            if (!smoothTransition)
+            {
+                healthSlider.value = targetValue;
+                currentValue = targetValue;
+            }
         }
 
         if (healthText != null)
         {
-            healthText.text = $"{Mathf.CeilToInt(currentHealth)} / {Mathf.CeilToInt(maxHealth)}";
+            healthText.text = $"{currentHealth} / {maxHealth}";
         }
     }
 }
