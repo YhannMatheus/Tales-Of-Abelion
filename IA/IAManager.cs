@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using JetBrains.Annotations;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -18,9 +17,7 @@ public class IAManager : MonoBehaviour
     [SerializeField] private CharacterData characterData = new CharacterData();
     
     [Header("Regeneração")]
-    [Tooltip("Habilitar regeneração de vida")]
     public bool enableHealthRegen = true;
-    [Tooltip("Habilitar regeneração de energia")]
     public bool enableEnergyRegen = true;
     
     private float _healthRegenTimer = 0f;

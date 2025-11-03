@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PlayerClickDetect : MonoBehaviour
+public class MouseManager : MonoBehaviour
 {
     private Camera cam;
 

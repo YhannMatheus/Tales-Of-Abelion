@@ -2,6 +2,15 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
+/// <summary>
+/// Gerencia a UI e UX de morte do player (overlay, botões, pause).
+/// Trabalha em conjunto com PlayerDeadState (que gerencia inputs/física).
+/// 
+/// Arquitetura:
+/// - PlayerDeadState: Controla estado do player (inputs desabilitados, física parada)
+/// - PlayerDeathManager: Controla UI (overlay, botões) e tempo de jogo (pause)
+/// - CheckpointManager: Controla respawn (posição, revive)
+/// </summary>
 public class PlayerDeathManager : MonoBehaviour
 {
     public static PlayerDeathManager Instance { get; private set; }
@@ -57,7 +66,7 @@ public class PlayerDeathManager : MonoBehaviour
     {
         if (deadPlayer != null)
         {
-            //CheckpointManager.Instance?.RespawnPlayer(deadPlayer);
+            CheckpointManager.Instance?.RespawnPlayer(deadPlayer);
         }
 
         HideDeathOverlay();

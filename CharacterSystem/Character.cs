@@ -240,11 +240,8 @@ public class Character : MonoBehaviour
         OnHealthChanged?.Invoke(characterData.currentHealth, characterData.TotalMaxHealth);
         OnDeath?.Invoke();
 
-        // Lógica específica de morte por tipo é tratada em IAManager ou PlayerDeathManager
-        if (characterType == CharacterType.Player)
-        {
-            PlayerDeathManager.Instance?.ShowDeathOverlay(this);
-        }
+        // Lógica específica de morte por tipo é tratada em IAManager ou PlayerManager (via events)
+        // UI de morte responderá ao evento OnDeath via script de UI separado
     }
 
     public void Revive()
