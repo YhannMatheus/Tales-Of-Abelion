@@ -6,12 +6,23 @@ public class PlayerMovingState : PlayerStateBase
 
     public override void EnterState()
     {
-        Debug.Log("[MovingState] Entrou no estado Moving");
+        // Define estado de animação como Moving
+        // MovingState controla TODAS as animações de movimento via Speed (0.0-1.0)
+        player.Animator?.SetMovingState();
+        
+        Debug.Log("[MovingState] Entrou no estado Moving - controlando Speed do blend tree");
     }
 
     public override void UpdateState()
     {
-        // Lê input de movimento
+        // ========== BOTÃO DIREITO DO MOUSE (PRIORIDADE) ==========
+        if (player.Mouse.RightMouseButtonDown)
+        {
+            HandleRightClick();
+            return;
+        }
+
+        // ========== MOVIMENTO WASD ==========
         Vector3 moveDirection = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
 
         if (moveDirection.magnitude <= player.MovementThreshold)
@@ -23,14 +34,18 @@ public class PlayerMovingState : PlayerStateBase
         player.Motor.Move(moveDirection, player.Character.Data.TotalSpeed);
         player.Motor.Rotate(moveDirection);
 
+        // IMPORTANTE: MovingState é o ÚNICO responsável por controlar Speed
+        // Atualiza blend tree (0.0=Idle → 0.3=Walk → 0.7=Jog → 1.0=Run)
         player.Animator?.UpdateMovementSpeed(player.Motor.CurrentSpeedNormalized, player.Motor.IsGrounded);
 
+        // ========== ATAQUE BÁSICO (LEGADO) ==========
         if (player.Input.attackInput)
         {
             SwitchState(new PlayerAttackingState(stateMachine, player));
             return;
         }
 
+        // ========== HABILIDADES ==========
         int abilitySlot = CheckAbilityInputs();
         if (abilitySlot != -1)
         {
@@ -38,6 +53,7 @@ public class PlayerMovingState : PlayerStateBase
             return;
         }
 
+        // ========== INTERAÇÃO ==========
         if (player.Input.interactButton)
         {
             GameObject clickedObject = player.Mouse.GetClickedObject();
@@ -69,7 +85,35 @@ public class PlayerMovingState : PlayerStateBase
 
     public override void ExitState()
     {
-        Debug.Log("[MovingState] Saiu do estado Moving");
+        // Zera velocidade ao sair - garante que blend tree volte para threshold 0.0
+        // Isso faz transição suave para Idle dentro do próprio blend tree
+        player.Animator?.UpdateMovementSpeed(0f, player.Motor.IsGrounded);
+        player.Motor.Stop();
+        
+        Debug.Log("[MovingState] Saiu do estado Moving - Speed zerado para transição suave");
+    }
+
+    // Processa clique com botão direito do mouse (cancela movimento WASD)
+    private void HandleRightClick()
+    {
+        // Verifica se clicou em inimigo
+        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        {
+            if (enemyCharacter.Data.IsAlive)
+            {
+                Debug.Log($"[MovingState] Cancelou movimento WASD, atacando: {enemyCharacter.name}");
+                SwitchState(new PlayerMovingToTargetState(stateMachine, player, enemyCharacter));
+                return;
+            }
+        }
+
+        // Clicou em chão - troca para movimento por clique
+        Vector3 destination = player.Mouse.GetMousePosition();
+        if (destination != Vector3.zero)
+        {
+            Debug.Log("[MovingState] Trocou para movimento por clique");
+            SwitchState(new PlayerMovingToTargetState(stateMachine, player, destination));
+        }
     }
 
     private int CheckAbilityInputs()

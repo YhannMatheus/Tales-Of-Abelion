@@ -22,6 +22,9 @@ public class PlayerCastingState : PlayerStateBase
         castCompleted = false;
 
         player.Motor.Stop();
+        
+        // Define estado de animação como Casting
+        player.Animator?.SetCastingState();
 
         if (abilityContext.Target != null)
         {

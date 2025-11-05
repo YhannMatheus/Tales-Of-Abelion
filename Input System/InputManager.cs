@@ -1,24 +1,18 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// Sistema centralizado de inputs configurável via Inspector
-/// Focado em PC com suporte a rebinding
-/// </summary>
 public class InputManager : MonoBehaviour
 {
     public static InputManager Instance { get; private set; }
 
-    [Header("Movement Axes")]
+    [Header("Movement Axes (WASD apenas)")]
     [SerializeField] private InputAxis horizontalAxis = new InputAxis
     {
         axisName = "Horizontal",
         unityAxisName = "Horizontal",
         useUnityAxis = true,
         positiveKey = KeyCode.D,
-        positiveKeyAlt = KeyCode.RightArrow,
         negativeKey = KeyCode.A,
-        negativeKeyAlt = KeyCode.LeftArrow,
         smoothing = 10f,
         deadZone = 0.1f
     };
@@ -29,9 +23,7 @@ public class InputManager : MonoBehaviour
         unityAxisName = "Vertical",
         useUnityAxis = true,
         positiveKey = KeyCode.W,
-        positiveKeyAlt = KeyCode.UpArrow,
         negativeKey = KeyCode.S,
-        negativeKeyAlt = KeyCode.DownArrow,
         smoothing = 10f,
         deadZone = 0.1f
     };
@@ -40,9 +32,9 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction interactAction = new InputAction
     {
         actionName = "Interact",
-        description = "Interagir com objetos",
-        primaryKey = KeyCode.E,
-        mouseButton = 1,
+        description = "Interagir com eventos/objetos",
+        primaryKey = KeyCode.None,
+        mouseButton = 0, // Botão esquerdo do mouse
         inputType = InputType.Button
     };
 
@@ -50,8 +42,8 @@ public class InputManager : MonoBehaviour
     {
         actionName = "Interact Hold",
         description = "Segurar para interagir (revive, etc)",
-        primaryKey = KeyCode.E,
-        mouseButton = 1,
+        primaryKey = KeyCode.None,
+        mouseButton = 0, // Botão esquerdo do mouse (hold)
         inputType = InputType.ButtonHold
     };
 
@@ -60,15 +52,16 @@ public class InputManager : MonoBehaviour
         actionName = "Attack",
         description = "Ataque básico",
         primaryKey = KeyCode.None,
-        mouseButton = 0,
+        mouseButton = 1, // Botão direito do mouse
         inputType = InputType.ButtonHold
     };
 
-    [SerializeField] private InputAction dodgeAction = new InputAction
+    [SerializeField] private InputAction pingAction = new InputAction
     {
-        actionName = "Dodge",
-        description = "Esquiva/Dash",
-        primaryKey = KeyCode.Space,
+        actionName = "Ping",
+        description = "Ping/Marcação",
+        primaryKey = KeyCode.None,
+        mouseButton = 2, // Botão central do mouse
         inputType = InputType.Button
     };
 
@@ -78,7 +71,6 @@ public class InputManager : MonoBehaviour
         actionName = "Pause",
         description = "Pausar jogo",
         primaryKey = KeyCode.Escape,
-        alternativeKey = KeyCode.P,
         inputType = InputType.Button
     };
 
@@ -87,25 +79,22 @@ public class InputManager : MonoBehaviour
         actionName = "Inventory",
         description = "Abrir inventário",
         primaryKey = KeyCode.I,
-        alternativeKey = KeyCode.Tab,
+        inputType = InputType.Button
+    };
+
+    [SerializeField] private InputAction equipmentAction = new InputAction
+    {
+        actionName = "Equipment",
+        description = "Abrir equipamento",
+        primaryKey = KeyCode.O,
         inputType = InputType.Button
     };
 
     [SerializeField] private InputAction worldMapAction = new InputAction
     {
         actionName = "World Map",
-        description = "Abrir mapa",
-        primaryKey = KeyCode.M,
-        alternativeKey = KeyCode.U,
-        inputType = InputType.Button
-    };
-
-    [SerializeField] private InputAction characterMenuAction = new InputAction
-    {
-        actionName = "Character Menu",
-        description = "Abrir menu de personagem",
-        primaryKey = KeyCode.C,
-        alternativeKey = KeyCode.O,
+        description = "Abrir mapa mundi",
+        primaryKey = KeyCode.P,
         inputType = InputType.Button
     };
 
@@ -113,8 +102,15 @@ public class InputManager : MonoBehaviour
     {
         actionName = "Skill Tree",
         description = "Abrir árvore de habilidades",
+        primaryKey = KeyCode.J,
+        inputType = InputType.Button
+    };
+
+    [SerializeField] private InputAction skillSelectionAction = new InputAction
+    {
+        actionName = "Skill Selection",
+        description = "Menu de seleção de skill",
         primaryKey = KeyCode.K,
-        alternativeKey = KeyCode.J,
         inputType = InputType.Button
     };
 
@@ -124,14 +120,14 @@ public class InputManager : MonoBehaviour
         actionName = "Basic Attack",
         description = "Ataque básico (slot 0)",
         primaryKey = KeyCode.None,
-        mouseButton = 0,
+        mouseButton = 1, // Botão direito
         inputType = InputType.Button
     };
 
     [SerializeField] private InputAction ability1Action = new InputAction
     {
         actionName = "Ability 1",
-        description = "Habilidade 1",
+        description = "Habilidade Q",
         primaryKey = KeyCode.Q,
         inputType = InputType.Button
     };
@@ -139,7 +135,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability2Action = new InputAction
     {
         actionName = "Ability 2",
-        description = "Habilidade 2",
+        description = "Habilidade E",
         primaryKey = KeyCode.E,
         inputType = InputType.Button
     };
@@ -147,7 +143,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability3Action = new InputAction
     {
         actionName = "Ability 3",
-        description = "Habilidade 3",
+        description = "Habilidade R",
         primaryKey = KeyCode.R,
         inputType = InputType.Button
     };
@@ -155,15 +151,15 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability4Action = new InputAction
     {
         actionName = "Ability 4",
-        description = "Habilidade 4",
-        primaryKey = KeyCode.F,
+        description = "Habilidade T",
+        primaryKey = KeyCode.T,
         inputType = InputType.Button
     };
 
     [SerializeField] private InputAction ability5Action = new InputAction
     {
         actionName = "Ability 5",
-        description = "Habilidade 5",
+        description = "Habilidade 1",
         primaryKey = KeyCode.Alpha1,
         inputType = InputType.Button
     };
@@ -171,7 +167,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability6Action = new InputAction
     {
         actionName = "Ability 6",
-        description = "Habilidade 6",
+        description = "Habilidade 2",
         primaryKey = KeyCode.Alpha2,
         inputType = InputType.Button
     };
@@ -179,7 +175,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability7Action = new InputAction
     {
         actionName = "Ability 7",
-        description = "Habilidade 7",
+        description = "Habilidade 3",
         primaryKey = KeyCode.Alpha3,
         inputType = InputType.Button
     };
@@ -187,7 +183,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] private InputAction ability8Action = new InputAction
     {
         actionName = "Ability 8",
-        description = "Habilidade 8",
+        description = "Habilidade 4",
         primaryKey = KeyCode.Alpha4,
         inputType = InputType.Button
     };
@@ -195,17 +191,18 @@ public class InputManager : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private bool enableInputLogging = false;
 
-    // Propriedades públicas (compatibilidade com código existente)
     public float horizontalInput => horizontalAxis.GetValue();
     public float verticalInput => verticalAxis.GetValue();
     public bool interactButton => interactAction.IsPressed();
     public bool interactButtonHold => interactHoldAction.IsHeld();
     public bool attackInput => attackAction.IsHeld();
+    public bool pingInput => pingAction.IsPressed();
     public bool pauseInput => pauseAction.IsPressed();
     public bool inventoryInput => inventoryAction.IsPressed();
+    public bool equipmentInput => equipmentAction.IsPressed();
     public bool worldMapInput => worldMapAction.IsPressed();
-    public bool characterMenuInput => characterMenuAction.IsPressed();
     public bool skillTreeInput => skillTreeAction.IsPressed();
+    public bool skillSelectionInput => skillSelectionAction.IsPressed();
     public bool basicAttackInput => basicAttackAction.IsPressed();
     public bool ability1Input => ability1Action.IsPressed();
     public bool ability2Input => ability2Action.IsPressed();
@@ -215,7 +212,6 @@ public class InputManager : MonoBehaviour
     public bool ability6Input => ability6Action.IsPressed();
     public bool ability7Input => ability7Action.IsPressed();
     public bool ability8Input => ability8Action.IsPressed();
-    public bool dodgeInput => dodgeAction.IsPressed();
 
     // Dicionário para acesso por nome (útil para rebinding)
     private Dictionary<string, InputAction> _actionMap;
@@ -243,12 +239,13 @@ public class InputManager : MonoBehaviour
             { "Interact", interactAction },
             { "InteractHold", interactHoldAction },
             { "Attack", attackAction },
-            { "Dodge", dodgeAction },
+            { "Ping", pingAction },
             { "Pause", pauseAction },
             { "Inventory", inventoryAction },
+            { "Equipment", equipmentAction },
             { "WorldMap", worldMapAction },
-            { "CharacterMenu", characterMenuAction },
             { "SkillTree", skillTreeAction },
+            { "SkillSelection", skillSelectionAction },
             { "BasicAttack", basicAttackAction },
             { "Ability1", ability1Action },
             { "Ability2", ability2Action },
@@ -268,10 +265,6 @@ public class InputManager : MonoBehaviour
     }
 
     // ========== Métodos de Acesso por Nome (para rebinding e UI) ==========
-
-    /// <summary>
-    /// Retorna uma ação por nome
-    /// </summary>
     public InputAction GetAction(string actionName)
     {
         if (_actionMap != null && _actionMap.TryGetValue(actionName, out InputAction action))
@@ -282,9 +275,6 @@ public class InputManager : MonoBehaviour
         return null;
     }
 
-    /// <summary>
-    /// Retorna um eixo por nome
-    /// </summary>
     public InputAxis GetAxis(string axisName)
     {
         if (_axisMap != null && _axisMap.TryGetValue(axisName, out InputAxis axis))
@@ -295,9 +285,6 @@ public class InputManager : MonoBehaviour
         return null;
     }
 
-    /// <summary>
-    /// Rebind de tecla primária para uma ação
-    /// </summary>
     public void RebindPrimaryKey(string actionName, KeyCode newKey)
     {
         InputAction action = GetAction(actionName);
@@ -308,9 +295,6 @@ public class InputManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Rebind de tecla alternativa para uma ação
-    /// </summary>
     public void RebindAlternativeKey(string actionName, KeyCode newKey)
     {
         InputAction action = GetAction(actionName);
@@ -321,25 +305,16 @@ public class InputManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Retorna todas as ações configuradas
-    /// </summary>
     public Dictionary<string, InputAction> GetAllActions()
     {
         return new Dictionary<string, InputAction>(_actionMap);
     }
 
-    /// <summary>
-    /// Desabilita todos os inputs (útil para cutscenes, diálogos, etc)
-    /// </summary>
     public void DisableAllInputs()
     {
         enabled = false;
     }
 
-    /// <summary>
-    /// Reabilita todos os inputs
-    /// </summary>
     public void EnableAllInputs()
     {
         enabled = true;
@@ -351,14 +326,23 @@ public class InputManager : MonoBehaviour
     {
         if (!enableInputLogging) return;
 
-        GUILayout.BeginArea(new Rect(10, 10, 300, 600));
+        GUILayout.BeginArea(new Rect(10, 10, 350, 700));
         GUILayout.Label("=== INPUT DEBUG ===");
         GUILayout.Label($"Horizontal: {horizontalInput:F2}");
         GUILayout.Label($"Vertical: {verticalInput:F2}");
-        GUILayout.Label($"Interact: {interactButton}");
-        GUILayout.Label($"Interact Hold: {interactButtonHold}");
-        GUILayout.Label($"Attack: {attackInput}");
-        GUILayout.Label($"Dodge: {dodgeInput}");
+        GUILayout.Label($"Interact (LMB): {interactButton}");
+        GUILayout.Label($"Interact Hold (LMB): {interactButtonHold}");
+        GUILayout.Label($"Attack (RMB): {attackInput}");
+        GUILayout.Label($"Ping (MMB): {pingInput}");
+        GUILayout.Label($"Pause (Esc): {pauseInput}");
+        GUILayout.Label($"Inventory (I): {inventoryInput}");
+        GUILayout.Label($"Equipment (O): {equipmentInput}");
+        GUILayout.Label($"World Map (P): {worldMapInput}");
+        GUILayout.Label($"Skill Tree (J): {skillTreeInput}");
+        GUILayout.Label($"Skill Selection (K): {skillSelectionInput}");
+        GUILayout.Label("--- Abilities ---");
+        GUILayout.Label($"Q: {ability1Input} | E: {ability2Input} | R: {ability3Input} | T: {ability4Input}");
+        GUILayout.Label($"1: {ability5Input} | 2: {ability6Input} | 3: {ability7Input} | 4: {ability8Input}");
         GUILayout.EndArea();
     }
 }

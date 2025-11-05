@@ -17,7 +17,8 @@ public class PlayerStunnedState : PlayerStateBase
 
         player.Motor.Stop();
 
-        player.Animator?.TriggerHit();
+        // Define estado de stun (bool, não trigger)
+        player.Animator?.SetStunned(true);
 
         Debug.Log($"[StunnedState] Player atordoado por {stunDuration}s");
     }
@@ -43,6 +44,9 @@ public class PlayerStunnedState : PlayerStateBase
 
     public override void ExitState()
     {
+        // Remove estado de stun
+        player.Animator?.SetStunned(false);
+        
         Debug.Log("[StunnedState] Player recuperou do atordoamento");
     }
 

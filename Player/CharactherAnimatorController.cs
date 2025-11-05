@@ -14,11 +14,18 @@ public class CharacterAnimatorController : MonoBehaviour
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
     private static readonly int IsDeathHash = Animator.StringToHash("isDeath");
-    private static readonly int HitHash = Animator.StringToHash("Hit");
+    private static readonly int TakeDamageHash = Animator.StringToHash("TakeDamage");
+    private static readonly int IsStunnedHash = Animator.StringToHash("isStunned");
     private static readonly int AttackHash = Animator.StringToHash("Attack");
     private static readonly int LevelUpHash = Animator.StringToHash("LevelUp");
     private static readonly int AbilityIndexHash = Animator.StringToHash("AbilityIndex");
     private static readonly int AbilityActiveHash = Animator.StringToHash("AbilityActive");
+    
+    // Estados do Player (para controlar animações por estado)
+    private static readonly int IsIdleHash = Animator.StringToHash("isIdle");
+    private static readonly int IsMovingHash = Animator.StringToHash("isMoving");
+    private static readonly int IsAttackingHash = Animator.StringToHash("isAttacking");
+    private static readonly int IsCastingHash = Animator.StringToHash("isCasting");
 
     private float currentSpeed = 0f;
     private bool isGrounded = true;
@@ -100,10 +107,26 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Atualiza velocidade de movimento no animator
+    /// IMPORTANTE: Só funciona quando isMoving=true (MovingState controla)
+    /// Idle não usa Speed - é estado puro
+    /// </summary>
     public void UpdateMovementSpeed(float targetSpeed, bool grounded = true)
     {
-
         if (animator == null) return;
+        
+        // CRÍTICO: Só atualiza Speed se estiver em MOVING state
+        // Idle é estado puro e não deve receber updates de Speed
+        if (!animator.GetBool(IsMovingHash))
+        {
+            if (debugAnimator)
+            {
+                Debug.Log("[CharacterAnimatorController] UpdateMovementSpeed ignorado - não está em MovingState");
+            }
+            return;
+        }
+        
         if (isGrounded != grounded)
         {
             isGrounded = grounded;
@@ -187,11 +210,32 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    public void TriggerHit()
+    /// <summary>
+    /// Dispara animação de receber dano (diferente de stun)
+    /// </summary>
+    public void TriggerTakeDamage()
     {
-
         if (animator == null || !character.Data.IsAlive) return;
-        animator.SetTrigger(HitHash);
+        animator.SetTrigger(TakeDamageHash);
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] Take damage animation triggered");
+        }
+    }
+
+    /// <summary>
+    /// Define estado de stun (bool, não trigger)
+    /// </summary>
+    public void SetStunned(bool stunned)
+    {
+        if (animator == null) return;
+        animator.SetBool(IsStunnedHash, stunned);
+        
+        if (debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Stunned state set to {stunned}");
+        }
     }
 
     public void EndAbility()
@@ -206,6 +250,94 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
+    // ========== Controle de Estados ==========
+
+    /// <summary>
+    /// Ativa estado Idle (desativa outros estados)
+    /// IMPORTANTE: Idle é estado PURO - não controla Speed, apenas para
+    /// </summary>
+    public void SetIdleState()
+    {
+        if (animator == null) return;
+        
+        animator.SetBool(IsIdleHash, true);
+        animator.SetBool(IsMovingHash, false);
+        animator.SetBool(IsAttackingHash, false);
+        animator.SetBool(IsCastingHash, false);
+        
+        // NÃO zera Speed aqui - Idle é estado puro sem controle de velocidade
+        // MovingState é responsável por controlar Speed
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] State set to IDLE (estado puro, sem Speed control)");
+        }
+    }
+
+    /// <summary>
+    /// Ativa estado Moving (desativa outros estados)
+    /// </summary>
+    public void SetMovingState()
+    {
+        if (animator == null) return;
+        
+        animator.SetBool(IsIdleHash, false);
+        animator.SetBool(IsMovingHash, true);
+        animator.SetBool(IsAttackingHash, false);
+        animator.SetBool(IsCastingHash, false);
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] State set to MOVING");
+        }
+    }
+
+    /// <summary>
+    /// Ativa estado Attacking (desativa outros estados, zera velocidade)
+    /// </summary>
+    public void SetAttackingState()
+    {
+        if (animator == null) return;
+        
+        animator.SetBool(IsIdleHash, false);
+        animator.SetBool(IsMovingHash, false);
+        animator.SetBool(IsAttackingHash, true);
+        animator.SetBool(IsCastingHash, false);
+        
+        // Zera velocidade para evitar deslizamento
+        currentSpeed = 0f;
+        animator.SetFloat(SpeedHash, 0f);
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] State set to ATTACKING, speed forced to 0");
+        }
+    }
+
+    /// <summary>
+    /// Ativa estado Casting (desativa outros estados, zera velocidade)
+    /// </summary>
+    public void SetCastingState()
+    {
+        if (animator == null) return;
+        
+        animator.SetBool(IsIdleHash, false);
+        animator.SetBool(IsMovingHash, false);
+        animator.SetBool(IsAttackingHash, false);
+        animator.SetBool(IsCastingHash, true);
+        
+        // Zera velocidade para evitar deslizamento
+        currentSpeed = 0f;
+        animator.SetFloat(SpeedHash, 0f);
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] State set to CASTING, speed forced to 0");
+        }
+    }
+
+    // ========== Métodos Utilitários ==========
+
     /// <summary>
     /// Reseta todos os triggers pendentes (evita animações tocando em momentos errados)
     /// </summary>
@@ -214,7 +346,7 @@ public class CharacterAnimatorController : MonoBehaviour
         if (animator == null) return;
         
         animator.ResetTrigger(AttackHash);
-        animator.ResetTrigger(HitHash);
+        animator.ResetTrigger(TakeDamageHash);
         animator.ResetTrigger(LevelUpHash);
         
         if (debugAnimator)

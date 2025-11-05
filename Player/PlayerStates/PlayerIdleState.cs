@@ -11,13 +11,23 @@ public class PlayerIdleState : PlayerStateBase
     {
         player.Motor.Stop();
 
-        player.Animator?.UpdateMovementSpeed(0f, player.Motor.IsGrounded);
+        // Define estado de animação como Idle PURO (sem controle de Speed)
+        // Idle = apenas parado, MovingState controla todas as animações de movimento
+        player.Animator?.SetIdleState();
 
-        Debug.Log("[IdleState] Entrou no estado Idle");
+        Debug.Log("[IdleState] Entrou no estado Idle (estado puro - sem Speed control)");
     }
 
     public override void UpdateState()
     {
+        // ========== BOTÃO DIREITO DO MOUSE (PRIORIDADE MÁXIMA) ==========
+        if (player.Mouse.RightMouseButtonDown)
+        {
+            HandleRightClick();
+            return;
+        }
+
+        // ========== MOVIMENTO WASD (LEGADO - OPCIONAL) ==========
         Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
         
         if (moveInput.magnitude > player.MovementThreshold)
@@ -26,12 +36,14 @@ public class PlayerIdleState : PlayerStateBase
             return;
         }
 
+        // ========== ATAQUE BÁSICO (LEGADO - OPCIONAL) ==========
         if (player.Input.attackInput)
         {
             SwitchState(new PlayerAttackingState(stateMachine, player));
             return;
         }
 
+        // ========== HABILIDADES (Q, E, R, T, 1-4) ==========
         int abilitySlot = CheckAbilityInputs();
         if (abilitySlot != -1)
         {
@@ -39,6 +51,7 @@ public class PlayerIdleState : PlayerStateBase
             return;
         }
 
+        // ========== INTERAÇÃO COM EVENTOS (E) ==========
         if (player.Input.interactButton)
         {
             GameObject clickedObject = player.Mouse.GetClickedObject();
@@ -59,6 +72,53 @@ public class PlayerIdleState : PlayerStateBase
                     }
                 }
             }
+        }
+    }
+
+    // Processa clique com botão direito do mouse (estilo MOBA/ARPG)
+    private void HandleRightClick()
+    {
+        // Verifica se clicou em inimigo
+        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        {
+            if (enemyCharacter.Data.IsAlive)
+            {
+                Debug.Log($"[IdleState] Clicou em inimigo: {enemyCharacter.name}, iniciando perseguição");
+                SwitchState(new PlayerMovingToTargetState(stateMachine, player, enemyCharacter));
+                return;
+            }
+        }
+
+        // Verifica se clicou em evento interativo
+        if (player.Mouse.IsMouseOverInteractable(out Event eventComponent))
+        {
+            float distance = Vector3.Distance(player.transform.position, eventComponent.transform.position);
+            
+            if (distance <= eventComponent.minDistanceToTrigger)
+            {
+                // Já está na distância, interage imediatamente
+                if (player.AutoRotateOnInteract)
+                {
+                    player.Motor.RotateToPosition(eventComponent.transform.position);
+                }
+                eventComponent.OnClick();
+                return;
+            }
+            else
+            {
+                // Precisa se mover até o objeto
+                Debug.Log($"[IdleState] Movendo até objeto interativo: {eventComponent.name}");
+                SwitchState(new PlayerMovingToTargetState(stateMachine, player, eventComponent.transform.position));
+                return;
+            }
+        }
+
+        // Clicou em chão/terreno - move até posição
+        Vector3 destination = player.Mouse.GetMousePosition();
+        if (destination != Vector3.zero)
+        {
+            Debug.Log($"[IdleState] Movendo para posição: {destination}");
+            SwitchState(new PlayerMovingToTargetState(stateMachine, player, destination));
         }
     }
 

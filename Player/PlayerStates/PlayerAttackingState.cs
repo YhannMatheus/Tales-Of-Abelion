@@ -1,14 +1,12 @@
 using UnityEngine;
 
-/// <summary>
-/// Estado Attacking - Player executando ataque.
-/// NÃO permite movimento durante ataque (por enquanto).
-/// </summary>
 public class PlayerAttackingState : PlayerStateBase
 {
     private float attackDuration;
     private float attackTimer = 0f;
-    private bool attackExecuted = false;
+    private bool attackExecuted;
+    private bool damageDealt = false;
+    private const float MINIMUM_ATTACK_TIME = 0.2f;
 
     public PlayerAttackingState(PlayerStateMachine stateMachine, PlayerManager player) 
         : base(stateMachine, player)
@@ -20,9 +18,11 @@ public class PlayerAttackingState : PlayerStateBase
     {
         attackTimer = 0f;
         attackExecuted = false;
+        damageDealt = false;
 
         player.Motor.Stop();
 
+        // Rotaciona APENAS NO INÍCIO para direção do mouse
         Vector3 mouseWorldPos = player.Mouse.GetMousePosition();
         Vector3 attackDirection = (mouseWorldPos - player.transform.position);
         attackDirection.y = 0;
@@ -48,49 +48,76 @@ public class PlayerAttackingState : PlayerStateBase
             return;
         }
 
+        // Define estado de animação como Attacking
+        player.Animator?.SetAttackingState();
         player.Animator?.TriggerAbility(0);
         
-        var instantContext = new AbilityContext
-        {
-            Caster = player.gameObject,
-            Target = player.Mouse.GetClickedObject(),
-            TargetPosition = player.Mouse.GetMousePosition(),
-            CastStartPosition = player.transform.position
-        };
+        // IMPORTANTE: Dano só será aplicado após MINIMUM_ATTACK_TIME
+        attackExecuted = true;
         
-        bool success = player.Ability.TryUseAbilityInSlot(0, instantContext);
-        attackExecuted = success;
-
-        if (success)
-        {
-            Debug.Log("[AttackingState] Ataque básico executado com sucesso (instantâneo)");
-        }
-        else
-        {
-            Debug.LogWarning("[AttackingState] Falha ao executar ataque básico (cooldown ou energia insuficiente?)");
-        }
+        Debug.Log("[AttackingState] Ataque básico iniciado - dano será aplicado após tempo mínimo");
     }
 
     public override void UpdateState()
     {
         attackTimer += Time.deltaTime;
 
-        if (player.CanRotateDuringAttack)
+        // Verifica se deve aplicar o dano (após tempo mínimo)
+        if (!damageDealt && attackTimer >= MINIMUM_ATTACK_TIME)
         {
-            Vector3 mouseWorldPos = player.Mouse.GetMousePosition();
-            Vector3 attackDirection = (mouseWorldPos - player.transform.position);
-            attackDirection.y = 0;
-
-            if (attackDirection.magnitude > player.MovementThreshold)
+            var context = new AbilityContext
             {
-                player.Motor.Rotate(attackDirection);
+                Caster = player.gameObject,
+                Target = player.Mouse.GetClickedObject(),
+                TargetPosition = player.Mouse.GetMousePosition(),
+                CastStartPosition = player.transform.position
+            };
+            
+            bool success = player.Ability.TryUseAbilityInSlot(0, context);
+            damageDealt = true;
+
+            if (success)
+            {
+                Debug.Log("[AttackingState] Dano do ataque básico aplicado");
+            }
+            else
+            {
+                Debug.LogWarning("[AttackingState] Falha ao aplicar dano (cooldown ou energia insuficiente?)");
             }
         }
 
+        // Verifica input de movimento para cancelar ataque
+        Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
+        
+        if (moveInput.magnitude > player.MovementThreshold)
+        {
+            // Se tentar mover ANTES do tempo mínimo, cancela o ataque
+            if (attackTimer < MINIMUM_ATTACK_TIME)
+            {
+                Debug.Log("[AttackingState] Ataque cancelado por movimento antes do tempo mínimo!");
+                
+                // Cancela animação de ataque
+                player.Animator?.EndAbility();
+                player.Animator?.ResetAllTriggers();
+                
+                SwitchState(new PlayerMovingState(stateMachine, player));
+                return;
+            }
+            // Se tentar mover DEPOIS do tempo mínimo mas antes de terminar, sai para movimento
+            else if (attackTimer < attackDuration)
+            {
+                Debug.Log("[AttackingState] Saindo para movimento após aplicar dano");
+                SwitchState(new PlayerMovingState(stateMachine, player));
+                return;
+            }
+        }
+
+        // REMOVIDO: Rotação durante ataque (CanRotateDuringAttack ignorado)
+        // O personagem NÃO rotaciona durante o ataque
+
+        // Ataque completo
         if (attackTimer >= attackDuration)
         {
-            Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
-            
             if (moveInput.magnitude > player.MovementThreshold)
             {
                 SwitchState(new PlayerMovingState(stateMachine, player));
