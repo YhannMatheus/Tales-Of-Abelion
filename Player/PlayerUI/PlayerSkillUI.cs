@@ -3,18 +3,18 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Módulo de UI responsável pela exibição de habilidades do player.
+/// Módulo de UI responsável pela exibição de skills do player.
 /// Atualiza ícones, cooldowns, feedback visual, etc.
 /// 
 /// Estrutura esperada para cada slot:
 /// - Background (Image)
 /// - Overlay (Image) - feedback visual (sem energia, fora de alcance)
-/// - Icon (Image) - ícone da habilidade
-/// - Slider (UI Slider) - cooldown da habilidade
+/// - Icon (Image) - ícone da skill
+/// - Slider (UI Slider) - cooldown da skill
 /// - Cooldown Text (TextMeshProUGUI) - tempo restante (opcional)
 /// - Hotkey Text (TextMeshProUGUI) - tecla de atalho (opcional)
 /// </summary>
-public class PlayerAbilityUI : MonoBehaviour
+public class PlayerSkillUI : MonoBehaviour
 {
     [System.Serializable]
     public class AbilitySlotUI

@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Character))]
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(IAAnimatorController))]
 [RequireComponent(typeof(IADetectSystem))]
 [RequireComponent(typeof(StateManager))]
-[RequireComponent(typeof(IAAbilityManager))]
+[RequireComponent(typeof(IASkillManager))]
 public class IAManager : MonoBehaviour
 {
     [Header("Informações Básicas")]
@@ -24,6 +25,8 @@ public class IAManager : MonoBehaviour
     private float _energyRegenTimer = 0f;
 
     public CharacterData Data => characterData;
+    
+    [HideInInspector] public Character character;
 
     [Header("Aliado - Configurações")]
     public Transform playerToFollow;
@@ -59,7 +62,7 @@ public class IAManager : MonoBehaviour
     [HideInInspector] public IAAnimatorController animator;
     [HideInInspector] public IADetectSystem detectSystem;
     [HideInInspector] public StateManager stateManager;
-    [HideInInspector] public IAAbilityManager abilityManager;
+    [HideInInspector] public IASkillManager skillManager;
     
     [Header("Runtime Data")]
     [HideInInspector] public Transform currentTarget;
@@ -85,11 +88,12 @@ public class IAManager : MonoBehaviour
 
     void Awake()
     {
+        character = GetComponent<Character>();
         controller = GetComponent<CharacterController>();
         animator = GetComponent<IAAnimatorController>();
         detectSystem = GetComponent<IADetectSystem>();
         stateManager = GetComponent<StateManager>();
-        abilityManager = GetComponent<IAAbilityManager>();
+        skillManager = GetComponent<IASkillManager>();
 
         InitializeNPC();
 
@@ -97,7 +101,7 @@ public class IAManager : MonoBehaviour
         walkSpeed = runSpeed * 0.7f;
 
         stateManager.Initialize(this);
-        abilityManager.InitializeAbilities();
+        skillManager.InitializeSkills();
 
         // Inscreve nos eventos de detecção
         SubscribeToDetectionEvents();

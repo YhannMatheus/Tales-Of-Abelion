@@ -73,21 +73,24 @@ public class CombatState : State
 
     private void TryCombat(IAManager ia, float distanceToTarget)
     {
-        if (ia.abilityManager == null) return;
+        if (ia.skillManager == null) return;
 
-        AbilitySlot highestDamageAbility = ia.abilityManager.GetHighestDamageAbility(distanceToTarget, includeBasicAttack: true);
+        Character targetChar = ia.currentTarget != null ? ia.currentTarget.GetComponent<Character>() : null;
+        if (targetChar == null) return;
 
-        if (highestDamageAbility == null)
+        SkillSlot highestDamageSkill = ia.skillManager.GetHighestDamageSkill(distanceToTarget, includeBasicAttack: true);
+
+        if (highestDamageSkill == null)
         {
-            UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} não tem habilidades disponíveis");
+            UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} não tem skills disponíveis");
             return;
         }
 
-        bool isBasicAttack = highestDamageAbility == ia.abilityManager.BasicAttackSlot;
+        bool isBasicAttack = highestDamageSkill == ia.skillManager.BasicAttackSlot;
 
         if (isBasicAttack)
         {
-            if (ia.abilityManager.TryUseBasicAttack(ia.currentTarget))
+            if (ia.skillManager.TryUseBasicAttack(targetChar))
             {
                 UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} usou ataque básico");
             }
@@ -96,22 +99,22 @@ public class CombatState : State
         {
             float randomChance = UnityEngine.Random.value;
 
-            if (randomChance < ia.stateManager.basicAttackBias && ia.abilityManager.BasicAttackSlot != null)
+            if (randomChance < ia.stateManager.basicAttackBias && ia.skillManager.BasicAttackSlot != null)
             {
-                if (ia.abilityManager.TryUseBasicAttack(ia.currentTarget))
+                if (ia.skillManager.TryUseBasicAttack(targetChar))
                 {
                     UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} escolheu ataque básico (bias)");
                     return;
                 }
             }
 
-            bool abilityUsed = ia.abilityManager.TryUseAbility(highestDamageAbility, ia.currentTarget);
+            bool skillUsed = ia.skillManager.TryUseSkill(highestDamageSkill, targetChar);
             
-            if (abilityUsed)
+            if (skillUsed)
             {
-                UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} usou habilidade: {highestDamageAbility.AssignedAbility.abilityName} (Dano: {highestDamageAbility.AssignedAbility.CalculateDamage(ia.Data):F1})");
+                UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} usou skill: {highestDamageSkill.AssignedSkill.skillName}");
             }
-            else if (ia.abilityManager.BasicAttackSlot != null && ia.abilityManager.TryUseBasicAttack(ia.currentTarget))
+            else if (ia.skillManager.BasicAttackSlot != null && ia.skillManager.TryUseBasicAttack(targetChar))
             {
                 UnityEngine.Debug.Log($"[CombatState] {ia.Data.characterName} usou ataque básico (fallback)");
             }

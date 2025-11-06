@@ -35,8 +35,8 @@ public class CharacterData
     public int endurance;
     public int freePoints;
 
-    [Header("Ability")]
-    public List<Ability> Ability = new List<Ability>();
+    [Header("Skills")]
+    public List<SkillData> Skills = new List<SkillData>();
 
     [Header("Modifiers")]
     public float physicalDamage;
@@ -116,9 +116,9 @@ public class CharacterData
         maxEnergy = characterClass.baseMaxEnergy;
         currentEnergy = TotalMaxEnergy;
 
-        Ability.Clear();
-        Ability.AddRange(characterRace.raceAbility);
-        Ability.AddRange(characterClass.classSkillTree);
+        Skills.Clear();
+        Skills.AddRange(characterRace.raceSkills);
+        Skills.AddRange(characterClass.classSkillTree);
 
         physicalDamage = characterClass.physicalDamage;
         physicalResistence = characterClass.physicalResistence;

@@ -32,19 +32,19 @@ public class PlayerAttackingState : PlayerStateBase
             player.Motor.Rotate(attackDirection);
         }
 
-        var attackAbility = player.Ability.SkillSlots[0]?.AssignedAbility;
+        var attackSkill = player.SkillManager.BasicAttackSlot?.AssignedSkill;
         
-        if (attackAbility != null && attackAbility.castTime > 0f)
+        if (attackSkill != null && attackSkill.castTime > 0f)
         {
-            var context = new AbilityContext
+            var context = new SkillContext
             {
-                Caster = player.gameObject,
-                Target = player.Mouse.GetClickedObject(),
-                TargetPosition = player.Mouse.GetMousePosition(),
-                CastStartPosition = player.transform.position
+                Caster = player.Character,
+                Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+                OriginPosition = player.transform.position,
+                TargetPosition = player.Mouse.GetMousePosition()
             };
             
-            SwitchState(new PlayerCastingState(stateMachine, player, 0, context, attackAbility.castTime));
+            SwitchState(new PlayerCastingState(stateMachine, player, 0, context, attackSkill.castTime));
             return;
         }
 
@@ -65,15 +65,15 @@ public class PlayerAttackingState : PlayerStateBase
         // Verifica se deve aplicar o dano (após tempo mínimo)
         if (!damageDealt && attackTimer >= MINIMUM_ATTACK_TIME)
         {
-            var context = new AbilityContext
+            var context = new SkillContext
             {
-                Caster = player.gameObject,
-                Target = player.Mouse.GetClickedObject(),
-                TargetPosition = player.Mouse.GetMousePosition(),
-                CastStartPosition = player.transform.position
+                Caster = player.Character,
+                Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+                OriginPosition = player.transform.position,
+                TargetPosition = player.Mouse.GetMousePosition()
             };
             
-            bool success = player.Ability.TryUseAbilityInSlot(0, context);
+            bool success = player.SkillManager.TryUseBasicAttack(context);
             damageDealt = true;
 
             if (success)

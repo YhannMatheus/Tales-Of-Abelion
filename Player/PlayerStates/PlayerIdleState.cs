@@ -138,28 +138,28 @@ public class PlayerIdleState : PlayerStateBase
 
     private void TryUseAbility(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= player.Ability.SkillSlots.Length) return;
+        if (slotIndex < 0 || slotIndex >= player.SkillManager.SkillSlots.Length) return;
 
-        var slot = player.Ability.SkillSlots[slotIndex];
-        if (slot == null || slot.AssignedAbility == null) return;
-        if (!slot.CanUse()) return;
+        var slot = player.SkillManager.SkillSlots[slotIndex];
+        if (slot == null || slot.AssignedSkill == null) return;
+        if (!slot.CanUse(player.Character)) return;
 
-        var context = new AbilityContext
+        var context = new SkillContext
         {
-            Caster = player.gameObject,
-            Target = player.Mouse.GetClickedObject(),
-            TargetPosition = player.Mouse.GetMousePosition(),
-            CastStartPosition = player.transform.position
+            Caster = player.Character,
+            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            OriginPosition = player.transform.position,
+            TargetPosition = player.Mouse.GetMousePosition()
         };
 
-        if (slot.AssignedAbility.castTime > 0f)
+        if (slot.AssignedSkill.castTime > 0f)
         {
-            SwitchState(new PlayerCastingState(stateMachine, player, slotIndex, context, slot.AssignedAbility.castTime));
+            SwitchState(new PlayerCastingState(stateMachine, player, slotIndex, context, slot.AssignedSkill.castTime));
         }
         else
         {
             player.Animator?.TriggerAbility(slotIndex);
-            player.Ability.TryUseAbilityInSlot(slotIndex, context);
+            player.SkillManager.TryUseSkillInSlot(slotIndex, context);
         }
     }
 

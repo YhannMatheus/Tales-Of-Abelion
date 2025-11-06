@@ -45,7 +45,6 @@ public class PlayerAutoAttackingState : PlayerStateBase
 
     public override void UpdateState()
     {
-        // ========== VERIFICA SE INIMIGO MORREU ==========
         if (targetEnemy == null || !targetEnemy.Data.IsAlive)
         {
             Debug.Log("[AutoAttackingState] Inimigo morreu, parando auto-ataque");
@@ -53,14 +52,12 @@ public class PlayerAutoAttackingState : PlayerStateBase
             return;
         }
 
-        // ========== VERIFICA NOVO INPUT DE BOTÃO DIREITO (cancela auto-ataque) ==========
         if (player.Mouse.RightMouseButtonDown)
         {
             HandleRightClick();
             return;
         }
 
-        // ========== VERIFICA DISTÂNCIA (inimigo fugiu?) ==========
         float distanceToEnemy = Vector3.Distance(player.transform.position, targetEnemy.transform.position);
         
         if (distanceToEnemy > attackRange)
@@ -70,7 +67,6 @@ public class PlayerAutoAttackingState : PlayerStateBase
             return;
         }
 
-        // ========== TIMER DE ATAQUE ==========
         attackTimer += Time.deltaTime;
 
         // Rotaciona continuamente para o inimigo (tracking)
@@ -79,7 +75,6 @@ public class PlayerAutoAttackingState : PlayerStateBase
             player.Motor.RotateToPosition(targetEnemy.transform.position);
         }
 
-        // ========== PRÓXIMO ATAQUE ==========
         if (attackTimer >= attackDuration && canAttackAgain)
         {
             // Reseta timer e executa próximo ataque
@@ -93,7 +88,6 @@ public class PlayerAutoAttackingState : PlayerStateBase
             canAttackAgain = true;
         }
 
-        // ========== PERMITE USAR HABILIDADES (cancela auto-ataque) ==========
         int abilitySlot = CheckAbilityInputs();
         if (abilitySlot != -1)
         {
@@ -116,19 +110,8 @@ public class PlayerAutoAttackingState : PlayerStateBase
         player.Animator?.SetAttackingState();
         player.Animator?.TriggerAbility(0);
 
-        // Cria contexto de ataque
-        var context = new AbilityContext
-        {
-            Caster = player.gameObject,
-            Target = targetEnemy.gameObject,
-            TargetPosition = targetEnemy.transform.position,
-            CastStartPosition = player.transform.position
-        };
-
-        // Executa ataque após tempo mínimo (simulando Animation Event)
-        // NOTA: Em produção, usar Animation Events no clip de ataque
-        player.Ability.TryUseAbilityInSlot(0, context);
-
+        // Usa Skill System
+        player.SkillManager.UseBasicAttack(targetEnemy);
         Debug.Log($"[AutoAttackingState] Atacou {targetEnemy.name}");
     }
 
@@ -176,37 +159,36 @@ public class PlayerAutoAttackingState : PlayerStateBase
 
     private void TryUseAbility(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= player.Ability.SkillSlots.Length) return;
+        if (slotIndex < 0 || slotIndex >= player.SkillManager.SkillSlots.Length) return;
 
-        var slot = player.Ability.SkillSlots[slotIndex];
-        if (slot == null || slot.AssignedAbility == null) return;
-        if (!slot.CanUse()) return;
+        var slot = player.SkillManager.SkillSlots[slotIndex];
+        if (slot == null || slot.AssignedSkill == null) return;
+        if (!slot.CanUse(player.Character)) return;
 
         player.Motor.Stop();
 
-        var context = new AbilityContext
+        var context = new SkillContext
         {
-            Caster = player.gameObject,
-            Target = player.Mouse.GetClickedObject(),
-            TargetPosition = player.Mouse.GetMousePosition(),
-            CastStartPosition = player.transform.position
+            Caster = player.Character,
+            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            OriginPosition = player.transform.position,
+            TargetPosition = player.Mouse.GetMousePosition()
         };
 
         Debug.Log("[AutoAttackingState] Cancelou auto-ataque para usar habilidade");
 
-        if (slot.AssignedAbility.castTime > 0f)
+        if (slot.AssignedSkill.castTime > 0f)
         {
-            SwitchState(new PlayerCastingState(stateMachine, player, slotIndex, context, slot.AssignedAbility.castTime));
+            SwitchState(new PlayerCastingState(stateMachine, player, slotIndex, context, slot.AssignedSkill.castTime));
         }
         else
         {
             player.Animator?.TriggerAbility(slotIndex);
-            player.Ability.TryUseAbilityInSlot(slotIndex, context);
+            player.SkillManager.TryUseSkillInSlot(slotIndex, context);
             SwitchState(new PlayerIdleState(stateMachine, player));
         }
     }
 
-    // ========== Permissões ==========
     public override bool CanMove() => false; // Travado no auto-ataque
     public override bool CanAttack() => false; // Já está atacando
     public override bool CanUseAbility() => true; // Pode usar habilidades (cancela auto-ataque)

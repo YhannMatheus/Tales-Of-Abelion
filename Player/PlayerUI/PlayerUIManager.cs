@@ -67,13 +67,13 @@ public class PlayerUIManager : MonoBehaviour
             character.OnExperienceGained += HandleExperienceGained;
         }
 
-        // Inicializa PlayerAbilityUI se disponível
+        // Inicializa PlayerSkillUI se disponível
         if (abilityUI != null && playerManager != null)
         {
-            var abilityManager = playerManager.GetComponent<PlayerAbilityManager>();
-            if (abilityManager != null)
+            var skillManager = playerManager.GetComponent<PlayerSkillManager>();
+            if (skillManager != null)
             {
-                abilityUI.Initialize(abilityManager);
+                abilityUI.Initialize(skillManager);
             }
         }
     }

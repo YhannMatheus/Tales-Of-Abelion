@@ -4,15 +4,15 @@ public class PlayerCastingState : PlayerStateBase
 {
     private float castTime;
     private float castTimer = 0f;
-    private int abilitySlotIndex;
-    private AbilityContext abilityContext;
+    private int skillSlotIndex;
+    private SkillContext skillContext;
     private bool castCompleted = false;
 
-    public PlayerCastingState(PlayerStateMachine stateMachine, PlayerManager player, int slotIndex, AbilityContext context, float duration) 
+    public PlayerCastingState(PlayerStateMachine stateMachine, PlayerManager player, int slotIndex, SkillContext context, float duration) 
         : base(stateMachine, player)
     {
-        abilitySlotIndex = slotIndex;
-        abilityContext = context;
+        skillSlotIndex = slotIndex;
+        skillContext = context;
         castTime = duration;
     }
 
@@ -26,18 +26,18 @@ public class PlayerCastingState : PlayerStateBase
         // Define estado de animação como Casting
         player.Animator?.SetCastingState();
 
-        if (abilityContext.Target != null)
+        if (skillContext.Target != null)
         {
-            Vector3 targetDir = abilityContext.Target.transform.position - player.transform.position;
+            Vector3 targetDir = skillContext.Target.transform.position - player.transform.position;
             targetDir.y = 0;
             if (targetDir.magnitude > player.MovementThreshold)
             {
                 player.Motor.Rotate(targetDir);
             }
         }
-        else if (abilityContext.TargetPosition.HasValue && abilityContext.TargetPosition.Value != Vector3.zero)
+        else if (skillContext.TargetPosition != Vector3.zero)
         {
-            Vector3 targetDir = abilityContext.TargetPosition.Value - player.transform.position;
+            Vector3 targetDir = skillContext.TargetPosition - player.transform.position;
             targetDir.y = 0;
             if (targetDir.magnitude > player.MovementThreshold)
             {
@@ -45,9 +45,9 @@ public class PlayerCastingState : PlayerStateBase
             }
         }
 
-        player.Animator?.TriggerAbility(abilitySlotIndex);
+        player.Animator?.TriggerAbility(skillSlotIndex);
 
-        Debug.Log($"[CastingState] Iniciando cast da habilidade slot {abilitySlotIndex} (duração: {castTime}s)");
+        Debug.Log($"[CastingState] Iniciando cast da skill slot {skillSlotIndex} (duração: {castTime}s)");
     }
 
     public override void UpdateState()
@@ -67,9 +67,9 @@ public class PlayerCastingState : PlayerStateBase
 
         if (player.CanRotateDuringCast)
         {
-            if (abilityContext.Target != null)
+            if (skillContext.Target != null)
             {
-                Vector3 targetDir = abilityContext.Target.transform.position - player.transform.position;
+                Vector3 targetDir = skillContext.Target.transform.position - player.transform.position;
                 targetDir.y = 0;
                 if (targetDir.magnitude > player.MovementThreshold)
                 {
@@ -81,7 +81,7 @@ public class PlayerCastingState : PlayerStateBase
         if (castTimer >= castTime && !castCompleted)
         {
             castCompleted = true;
-            ExecuteAbility();
+            ExecuteSkill();
             
             Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
             if (moveInput.magnitude > player.MovementThreshold)
@@ -102,17 +102,17 @@ public class PlayerCastingState : PlayerStateBase
         Debug.Log($"[CastingState] Cast finalizado. Completado: {castCompleted}");
     }
 
-    private void ExecuteAbility()
+    private void ExecuteSkill()
     {
-        bool success = player.Ability.TryUseAbilityInSlot(abilitySlotIndex, abilityContext);
+        bool success = player.SkillManager.TryUseSkillInSlot(skillSlotIndex, skillContext);
         
         if (success)
         {
-            Debug.Log($"[CastingState] Habilidade slot {abilitySlotIndex} executada com sucesso após cast!");
+            Debug.Log($"[CastingState] Skill slot {skillSlotIndex} executada com sucesso após cast!");
         }
         else
         {
-            Debug.LogWarning($"[CastingState] Falha ao executar habilidade slot {abilitySlotIndex} (energia insuficiente?)");
+            Debug.LogWarning($"[CastingState] Falha ao executar skill slot {skillSlotIndex} (energia insuficiente?)");
         }
     }
 

@@ -17,8 +17,8 @@ public class RaceData : ScriptableObject
     public int Charisma;
     public int Endurance;
 
-    [Header("Ability")]
-    public List<Ability> raceAbility = new List<Ability>();
+    [Header("Skills")]
+    public List<SkillData> raceSkills = new List<SkillData>();
     public float moveSpeed;
 
     [Header("Visual Information")]

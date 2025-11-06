@@ -26,8 +26,8 @@ public class ClassData : ScriptableObject
     public int CharismaBonus;
     public int EnduranceBonus;
 
-    [Header("Ability")]
-    public List<Ability> classSkillTree = new List<Ability>();
+    [Header("Skills")]
+    public List<SkillData> classSkillTree = new List<SkillData>();
 
     [Header("Base Modifiers")] 
     public float physicalDamage;
