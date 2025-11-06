@@ -112,7 +112,21 @@ public class IASkillManager : MonoBehaviour
 
     public bool TryUseSkill(SkillSlot slot, Character target)
     {
-        if (!CanUseSkill(slot)) return false;
+        if (!CanUseSkill(slot))
+        {
+            // Verifica se falhou por falta de energia
+            if (slot != null && slot.AssignedSkill != null)
+            {
+                float requiredEnergy = slot.AssignedSkill.cost.energy;
+                if (_iaManager.character.Data.currentEnergy < requiredEnergy)
+                {
+                    int slotIndex = SkillSlots.IndexOf(slot);
+                    OnInsufficientEnergy?.Invoke(slotIndex);
+                    Debug.LogWarning($"[IASkillManager] {_iaManager.Data.characterName} sem energia para {slot.AssignedSkill.skillName}");
+                }
+            }
+            return false;
+        }
 
         SkillContext context = new SkillContext
         {

@@ -4,7 +4,6 @@ public class PlayerAttackingState : PlayerStateBase
 {
     private float attackDuration;
     private float attackTimer = 0f;
-    private bool attackExecuted;
     private bool damageDealt = false;
     private const float MINIMUM_ATTACK_TIME = 0.2f;
 
@@ -17,7 +16,7 @@ public class PlayerAttackingState : PlayerStateBase
     public override void EnterState()
     {
         attackTimer = 0f;
-        attackExecuted = false;
+        damageDealt = false;
         damageDealt = false;
 
         player.Motor.Stop();
@@ -53,7 +52,6 @@ public class PlayerAttackingState : PlayerStateBase
         player.Animator?.TriggerAbility(0);
         
         // IMPORTANTE: Dano só será aplicado após MINIMUM_ATTACK_TIME
-        attackExecuted = true;
         
         Debug.Log("[AttackingState] Ataque básico iniciado - dano será aplicado após tempo mínimo");
     }
@@ -111,9 +109,6 @@ public class PlayerAttackingState : PlayerStateBase
                 return;
             }
         }
-
-        // REMOVIDO: Rotação durante ataque (CanRotateDuringAttack ignorado)
-        // O personagem NÃO rotaciona durante o ataque
 
         // Ataque completo
         if (attackTimer >= attackDuration)

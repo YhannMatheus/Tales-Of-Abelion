@@ -15,6 +15,12 @@ public class CharacterData
     public int level;
     public int experiencePoints;
     public int experienceToNextLevel;
+    
+    [Header("Level Progression Settings")]
+    [Tooltip("Valor base de XP necessário para o nível 1")]
+    public float xpBaseValue = 100f;
+    [Tooltip("Expoente de escalamento (1.5 = crescimento moderado, 2.0 = crescimento rápido)")]
+    public float xpScalingExponent = 1.5f;
 
     [Header("Life Information")]
     public int currentHealth;
@@ -71,6 +77,9 @@ public class CharacterData
     public int equipamentHealthRegenBonus;
 
     [Header("External Modifiers")]
+    // ⚠️ NOTA: Estes campos são gerenciados pelo BuffSystem
+    // Não modifique diretamente - use BuffManager.ApplyBuff() em vez disso
+    // BuffManager aplica/remove automaticamente estes modificadores durante a duração dos buffs
     public float externalPhysicalDamageBonus;
     public float externalPhysicalResistenceBonus;
     public float externalMagicalDamageBonus;
@@ -100,8 +109,132 @@ public class CharacterData
     public float TotalSpeed => speed + equipamentSpeedBonus + externalSpeedBonus;
 
 
+    // Aplica modificador de equipamento usando enum (type-safe)
+    public void ApplyEquipmentModifier(ModifierVar variable, float value)
+    {
+        switch (variable)
+        {
+            case ModifierVar.physicalDamage:
+                equipamentPhysicalDamageBonus += value;
+                break;
+            case ModifierVar.physicalResistence:
+                equipamentPhysicalResistenceBonus += value;
+                break;
+            case ModifierVar.magicalDamage:
+                equipamentMagicalDamageBonus += value;
+                break;
+            case ModifierVar.magicalResistence:
+                equipamentMagicalResistenceBonus += value;
+                break;
+            case ModifierVar.maxHealth:
+                equipamentMaxHealthBonus += Mathf.RoundToInt(value);
+                break;
+            case ModifierVar.maxEnergy:
+                equipamentMaxEnergyBonus += Mathf.RoundToInt(value);
+                break;
+            case ModifierVar.speed:
+                equipamentSpeedBonus += value;
+                break;
+            case ModifierVar.criticalChance:
+                equipamentCriticalChanceBonus += value;
+                break;
+            case ModifierVar.criticalDamage:
+                equipamentCriticalDamageBonus += value;
+                break;
+            case ModifierVar.attackSpeed:
+                equipamentAttackSpeedBonus += value;
+                break;
+            case ModifierVar.luck:
+                equipamentLuckBonus += value;
+                break;
+            case ModifierVar.healthRegen:
+                equipamentHealthRegenBonus += Mathf.RoundToInt(value);
+                break;
+            default:
+                Debug.LogWarning($"[CharacterData] Modificador de equipamento não suportado: {variable}");
+                break;
+        }
+    }
+
+    // Remove modificador de equipamento usando enum (type-safe)
+    public void RemoveEquipmentModifier(ModifierVar variable, float value)
+    {
+        ApplyEquipmentModifier(variable, -value);
+    }
+
+    // Obtém o valor total de um modificador específico (útil para BuffSystem)
+    public float GetTotalModifier(ModifierVar variable)
+    {
+        switch (variable)
+        {
+            case ModifierVar.physicalDamage:
+                return TotalPhysicalDamage;
+            case ModifierVar.physicalResistence:
+                return TotalPhysicalResistance;
+            case ModifierVar.magicalDamage:
+                return TotalMagicalDamage;
+            case ModifierVar.magicalResistence:
+                return TotalMagicalResistance;
+            case ModifierVar.maxHealth:
+                return TotalMaxHealth;
+            case ModifierVar.maxEnergy:
+                return TotalMaxEnergy;
+            case ModifierVar.speed:
+                return TotalSpeed;
+            case ModifierVar.criticalChance:
+                return TotalCriticalChance;
+            case ModifierVar.criticalDamage:
+                return TotalCriticalDamage;
+            case ModifierVar.attackSpeed:
+                return TotalAttackSpeed;
+            case ModifierVar.luck:
+                return TotalLuck;
+            case ModifierVar.healthRegen:
+                return TotalHealthRegen;
+            default:
+                Debug.LogWarning($"[CharacterData] GetTotalModifier não suporta: {variable}");
+                return 0f;
+        }
+    }
+
+    // Obtém o valor base de um modificador (sem bônus)
+    public float GetBaseModifier(ModifierVar variable)
+    {
+        switch (variable)
+        {
+            case ModifierVar.physicalDamage:
+                return physicalDamage;
+            case ModifierVar.physicalResistence:
+                return physicalResistence;
+            case ModifierVar.magicalDamage:
+                return magicalDamage;
+            case ModifierVar.magicalResistence:
+                return magicalResistence;
+            case ModifierVar.maxHealth:
+                return maxHealth;
+            case ModifierVar.maxEnergy:
+                return maxEnergy;
+            case ModifierVar.speed:
+                return speed;
+            case ModifierVar.criticalChance:
+                return criticalChance;
+            case ModifierVar.criticalDamage:
+                return criticalDamage;
+            case ModifierVar.attackSpeed:
+                return attackSpeed;
+            case ModifierVar.luck:
+                return luck;
+            case ModifierVar.healthRegen:
+                return healthRegen;
+            default:
+                Debug.LogWarning($"[CharacterData] GetBaseModifier não suporta: {variable}");
+                return 0f;
+        }
+    }
+
+
     // Inicializa todos os valores base do personagem a partir da raça e classe
-    public void Initialization()
+    public void Initialization(bool resetHealthAndEnergy = true)
     {
         strength = characterRace.Strength + characterClass.StrengthBonus;
         dexterity = characterRace.Dexterity + characterClass.DexterityBonus;
@@ -110,11 +243,22 @@ public class CharacterData
         endurance = characterRace.Endurance + characterClass.EnduranceBonus;
 
         maxHealth = characterClass.baseMaxHealth + (endurance * characterClass.healthMultiplierPerEndurance) + (level * characterClass.healthMultiplierPerLevel);
-        currentHealth = TotalMaxHealth;
+        
+        // Apenas reseta HP/Energia se for a primeira vez (protege contra exploit de re-init)
+        if (resetHealthAndEnergy)
+        {
+            currentHealth = TotalMaxHealth;
+            currentEnergy = TotalMaxEnergy;
+        }
+        else
+        {
+            // Ajusta HP/Energia proporcionalmente se o máximo mudou
+            currentHealth = Mathf.Min(currentHealth, TotalMaxHealth);
+            currentEnergy = Mathf.Min(currentEnergy, TotalMaxEnergy);
+        }
 
         energyType = characterClass.energyType;
         maxEnergy = characterClass.baseMaxEnergy;
-        currentEnergy = TotalMaxEnergy;
 
         Skills.Clear();
         Skills.AddRange(characterRace.raceSkills);
@@ -136,9 +280,16 @@ public class CharacterData
     }
 
     // Calcula quantos pontos de experiência são necessários para o próximo nível
+    // Agora usa valores configuráveis no Inspector!
     private int CalculateExperienceForNextLevel()
     {
-        return Mathf.RoundToInt(100 * Mathf.Pow(level, 1.5f));
+        // Fórmula: XP = baseValue * (level ^ exponent)
+        // Exemplo com padrões (100, 1.5):
+        // Level 1: 100 XP
+        // Level 2: 282 XP
+        // Level 5: 1118 XP
+        // Level 10: 3162 XP
+        return Mathf.RoundToInt(xpBaseValue * Mathf.Pow(level, xpScalingExponent));
     }
 
     // Aumenta o nível do personagem quando tem experiência suficiente
@@ -154,6 +305,13 @@ public class CharacterData
 
     public void GainExperience(int amount)
     {
+        // Validação: XP não pode ser negativo
+        if (amount < 0)
+        {
+            Debug.LogWarning($"[CharacterData] GainExperience recebeu valor negativo ({amount}). XP não pode ser reduzido dessa forma.");
+            return;
+        }
+
         experiencePoints += amount;
 
         while (experiencePoints >= experienceToNextLevel)
@@ -165,6 +323,13 @@ public class CharacterData
     // Aplica dano ao personagem considerando resistência
     public void TakeDamage(float damage, bool isMagical = false)
     {
+        // Validação: dano não pode ser negativo (cura deve usar Heal)
+        if (damage < 0)
+        {
+            Debug.LogWarning($"[CharacterData] TakeDamage recebeu valor negativo ({damage}). Use Heal() para curar.");
+            return;
+        }
+
         float resistance = isMagical ? TotalMagicalResistance : TotalPhysicalResistance;
         
         // Fórmula de redução: Redução% = Resistência / (Resistência + 100)
@@ -178,12 +343,26 @@ public class CharacterData
     // Cura o personagem (não ultrapassa a vida máxima)
     public void Heal(int amount)
     {
+        // Validação: cura não pode ser negativa (dano deve usar TakeDamage)
+        if (amount < 0)
+        {
+            Debug.LogWarning($"[CharacterData] Heal recebeu valor negativo ({amount}). Use TakeDamage() para causar dano.");
+            return;
+        }
+
         currentHealth = Mathf.Min(TotalMaxHealth, currentHealth + amount);
     }
 
     // Tenta gastar energia. Retorna true se conseguiu, false se não tinha energia suficiente
     public bool SpendEnergy(int amount)
     {
+        // Validação: gasto não pode ser negativo (recuperar deve usar RestoreEnergy)
+        if (amount < 0)
+        {
+            Debug.LogWarning($"[CharacterData] SpendEnergy recebeu valor negativo ({amount}). Use RestoreEnergy() para recuperar energia.");
+            return false;
+        }
+
         if (currentEnergy >= amount)
         {
             currentEnergy -= amount;
@@ -195,6 +374,13 @@ public class CharacterData
     // Recupera energia (não ultrapassa a energia máxima)
     public void RestoreEnergy(int amount)
     {
+        // Validação: recuperação não pode ser negativa (gastar deve usar SpendEnergy)
+        if (amount < 0)
+        {
+            Debug.LogWarning($"[CharacterData] RestoreEnergy recebeu valor negativo ({amount}). Use SpendEnergy() para gastar energia.");
+            return;
+        }
+
         currentEnergy = Mathf.Min(TotalMaxEnergy, currentEnergy + amount);
     }
 
