@@ -94,7 +94,7 @@ public class SkillSlot
     }
 
     // Verifica se pode usar a skill
-    public bool CanUse(Character caster)
+    public bool CanUse(CharacterManager caster)
     {
         if (IsEmpty)
             return false;

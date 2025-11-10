@@ -3,14 +3,34 @@ public enum CharacterType
 {
     Player,
     Enemy,
-    Ally,
-    NPC
+    Neutral,
+    Ally
 }
 public enum EnergyType
 {
-    Mana,
-    Stamina,
-    Rage,
+    Mana,       // Regenera lentamente, cresce em valores flat
+    Stamina,    // Funciona por porcentagem (0-100), consome e regenera por %
+    Fury        // Começa zerada, ganha ao atacar/receber dano, dispara evento ao máximo
+}
+
+/// <summary>
+/// Define o modo de consumo/regeneração de energia
+/// </summary>
+public enum EnergyModificationMode
+{
+    Flat,       // Valor absoluto (ex: +50 mana)
+    Percentage  // Valor percentual (ex: +25% do máximo)
+}
+
+/// <summary>
+/// Fonte de ganho de Fúria
+/// </summary>
+public enum FuryGainSource
+{
+    DealDamage,     // Ao causar dano
+    TakeDamage,     // Ao receber dano
+    Skill,          // Por habilidade específica
+    Other           // Outras fontes
 }
 
 public enum ModifierType

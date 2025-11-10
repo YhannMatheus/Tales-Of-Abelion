@@ -1,5 +1,19 @@
 using UnityEngine;
 
+// ========================================
+// PlayerIdleState - Estado Idle do Player
+// ========================================
+// CONTROLES:
+// - Botão Direito do Mouse: Movimento/Ataque (estilo MOBA/ARPG)
+//   • Clique em chão = Move para posição
+//   • Clique em inimigo = Persegue e ataca
+//   • Clique em objeto interativo = Move até ele
+// - Q, W, E, A, S, D: Habilidades (6 slots principais)
+// - Z, X: Slots extras (Itens/Consumíveis)
+// - Botão Esquerdo (E): Interação com objetos próximos
+// ⚠️ WASD removido - usa apenas clique do mouse para movimento
+// ========================================
+
 public class PlayerIdleState : PlayerStateBase
 {
     public PlayerIdleState(PlayerStateMachine stateMachine, PlayerManager player) 
@@ -14,32 +28,15 @@ public class PlayerIdleState : PlayerStateBase
         // Define estado de animação como Idle PURO (sem controle de Speed)
         // Idle = apenas parado, MovingState controla todas as animações de movimento
         player.Animator?.SetIdleState();
-
-        Debug.Log("[IdleState] Entrou no estado Idle (estado puro - sem Speed control)");
     }
 
     public override void UpdateState()
     {
-        // ========== BOTÃO DIREITO DO MOUSE (PRIORIDADE MÁXIMA) ==========
-        if (player.Mouse.RightMouseButtonDown)
+        // ========== BOTÃO DIREITO DO MOUSE (MOVIMENTO/ATAQUE) ==========
+        // Detecta tanto clique quanto botão segurado
+        if (player.Mouse.RightMouseButtonDown || player.Mouse.RightMouseButtonHeld)
         {
             HandleRightClick();
-            return;
-        }
-
-        // ========== MOVIMENTO WASD (LEGADO - OPCIONAL) ==========
-        Vector3 moveInput = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
-        
-        if (moveInput.magnitude > player.MovementThreshold)
-        {
-            SwitchState(new PlayerMovingState(stateMachine, player));
-            return;
-        }
-
-        // ========== ATAQUE BÁSICO (LEGADO - OPCIONAL) ==========
-        if (player.Input.attackInput)
-        {
-            SwitchState(new PlayerAttackingState(stateMachine, player));
             return;
         }
 
@@ -79,11 +76,10 @@ public class PlayerIdleState : PlayerStateBase
     private void HandleRightClick()
     {
         // Verifica se clicou em inimigo
-        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        if (player.Mouse.IsMouseOverEnemy(out CharacterManager enemyCharacter))
         {
             if (enemyCharacter.Data.IsAlive)
             {
-                Debug.Log($"[IdleState] Clicou em inimigo: {enemyCharacter.name}, iniciando perseguição");
                 SwitchState(new PlayerMovingToTargetState(stateMachine, player, enemyCharacter));
                 return;
             }
@@ -107,7 +103,6 @@ public class PlayerIdleState : PlayerStateBase
             else
             {
                 // Precisa se mover até o objeto
-                Debug.Log($"[IdleState] Movendo até objeto interativo: {eventComponent.name}");
                 SwitchState(new PlayerMovingToTargetState(stateMachine, player, eventComponent.transform.position));
                 return;
             }
@@ -117,21 +112,23 @@ public class PlayerIdleState : PlayerStateBase
         Vector3 destination = player.Mouse.GetMousePosition();
         if (destination != Vector3.zero)
         {
-            Debug.Log($"[IdleState] Movendo para posição: {destination}");
             SwitchState(new PlayerMovingToTargetState(stateMachine, player, destination));
         }
     }
 
     private int CheckAbilityInputs()
     {
-        if (player.Input.ability1Input) return 1;
-        if (player.Input.ability2Input) return 2;
-        if (player.Input.ability3Input) return 3;
-        if (player.Input.ability4Input) return 4;
-        if (player.Input.ability5Input) return 5;
-        if (player.Input.ability6Input) return 6;
-        if (player.Input.ability7Input) return 7;
-        if (player.Input.ability8Input) return 8;
+        // Slots 1-6: Q, W, E, A, S, D (Habilidades principais)
+        if (player.Input.ability1Input) return 1; // Q
+        if (player.Input.ability2Input) return 2; // W
+        if (player.Input.ability3Input) return 3; // E
+        if (player.Input.ability4Input) return 4; // A
+        if (player.Input.ability5Input) return 5; // S
+        if (player.Input.ability6Input) return 6; // D
+        
+        // Slots 7-8: Z, X (Itens/Consumíveis)
+        if (player.Input.ability7Input) return 7; // Z
+        if (player.Input.ability8Input) return 8; // X
         
         return -1; // Nenhuma habilidade pressionada
     }
@@ -147,7 +144,7 @@ public class PlayerIdleState : PlayerStateBase
         var context = new SkillContext
         {
             Caster = player.Character,
-            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
             OriginPosition = player.transform.position,
             TargetPosition = player.Mouse.GetMousePosition()
         };

@@ -4,10 +4,10 @@ using UnityEngine;
 public class SkillContext
 {
     // Quem usou a skill
-    public Character Caster { get; set; }
+    public CharacterManager Caster { get; set; }
     
     // Alvo principal (pode ser null)
-    public Character Target { get; set; }
+    public CharacterManager Target { get; set; }
     
     // Posição de origem
     public Vector3 OriginPosition { get; set; }
@@ -37,7 +37,7 @@ public class SkillContext
     }
 
     // Construtor com caster
-    public SkillContext(Character caster)
+    public SkillContext(CharacterManager caster)
     {
         Caster = caster;
         OriginPosition = caster.transform.position;
@@ -46,7 +46,7 @@ public class SkillContext
     }
 
     // Construtor com caster e alvo
-    public SkillContext(Character caster, Character target)
+    public SkillContext(CharacterManager caster, CharacterManager target)
     {
         Caster = caster;
         Target = target;
@@ -57,7 +57,7 @@ public class SkillContext
     }
 
     // Construtor com caster e posição
-    public SkillContext(Character caster, Vector3 targetPosition)
+    public SkillContext(CharacterManager caster, Vector3 targetPosition)
     {
         Caster = caster;
         OriginPosition = caster.transform.position;
@@ -97,7 +97,7 @@ public class SkillEffectResult
     public float HealingDone { get; set; }
     
     // Alvos afetados
-    public Character[] AffectedTargets { get; set; }
+    public CharacterManager[] AffectedTargets { get; set; }
     
     // Mensagem de erro (se falhou)
     public string ErrorMessage { get; set; }
@@ -108,6 +108,6 @@ public class SkillEffectResult
     public SkillEffectResult()
     {
         Success = true;
-        AffectedTargets = new Character[0];
+        AffectedTargets = new CharacterManager[0];
     }
 }

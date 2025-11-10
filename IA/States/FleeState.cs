@@ -10,7 +10,7 @@ public class FleeState : State
         _fleeStartTime = UnityEngine.Time.time;
         _hasReachedSafety = false;
 
-        if (ia.iaType == IaType.Ally)
+        if (ia.CharacterManager.characterType == CharacterType.Ally)
         {
             HandleAllyFlee(ia);
         }
@@ -22,7 +22,7 @@ public class FleeState : State
         ia.currentSpeed = ia.runSpeed;
         ia.animator.targetSpeedNormalized = 1.0f;
 
-        UnityEngine.Debug.Log($"[FleeState] {ia.Data.characterName} ({ia.iaType}) iniciou fuga! HP: {ia.Data.currentHealth}/{ia.Data.TotalMaxHealth}");
+        UnityEngine.Debug.Log($"[FleeState] {ia.Data.characterName} ({ia.CharacterManager.characterType}) iniciou fuga! HP: {ia.Data.currentHealth}/{ia.Data.TotalMaxHealth}");
     }
 
     public override void UpdateState(IAManager ia)
@@ -33,7 +33,7 @@ public class FleeState : State
             return;
         }
 
-        if (ia.iaType == IaType.Ally)
+        if (ia.CharacterManager.characterType == CharacterType.Ally)
         {
             UpdateAllyFlee(ia);
         }
@@ -83,7 +83,7 @@ public class FleeState : State
 
         _fleeTargetPosition = ia.transform.position + (_fleeDirection * ia.stateManager.fleeDistance);
 
-        UnityEngine.Debug.Log($"[FleeState] {ia.iaType} {ia.Data.characterName} fugindo da luta");
+        UnityEngine.Debug.Log($"[FleeState] {ia.CharacterManager.characterType} {ia.Data.characterName} fugindo da luta");
     }
 
     private void UpdateAllyFlee(IAManager ia)

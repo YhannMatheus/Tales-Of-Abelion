@@ -11,24 +11,24 @@ public class IdleState : State
         ia.moveDirection = Vector3.zero;
         idleTimer = 0f;
         
-        Debug.Log($"[IdleState] {ia.iaType} entrou em Idle");
+        Debug.Log($"[IdleState] {ia.CharacterManager.characterType} entrou em Idle");
     }
 
     public override void UpdateState(IAManager ia)
     {
         idleTimer += Time.deltaTime;
         
-        switch (ia.iaType)
+        switch (ia.CharacterManager.characterType)
         {
-            case IaType.Neutral:
+            case CharacterType.Neutral:
                 HandleNeutralIdle(ia);
                 break;
                 
-            case IaType.Enemy:
+            case CharacterType.Enemy:
                 HandleEnemyIdle(ia);
                 break;
                 
-            case IaType.Ally:
+            case CharacterType.Ally:
                 HandleAllyIdle(ia);
                 break;
         }
@@ -39,7 +39,7 @@ public class IdleState : State
         ia.currentSpeed = 0f;
         idleTimer = 0f;
         
-        Debug.Log($"[IdleState] {ia.iaType} saiu de Idle");
+        Debug.Log($"[IdleState] {ia.CharacterManager.characterType} saiu de Idle");
     }
 
     private void HandleNeutralIdle(IAManager ia)

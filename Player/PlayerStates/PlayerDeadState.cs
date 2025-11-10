@@ -24,7 +24,7 @@ public class PlayerDeadState : PlayerStateBase
     public override void UpdateState()
     {
         // Estado de morte não faz nada - aguarda respawn externo
-        // A transição para Idle só acontece quando Character.Revive() for chamado
+        // A transição para Idle só acontece quando CharacterManager.Revive() for chamado
         // ainda vou criar um evento para isso
     }
 

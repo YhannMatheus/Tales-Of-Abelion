@@ -25,7 +25,7 @@ public class BuffManager : MonoBehaviour
     }
 
     [Header("References")]
-    [SerializeField] private Character character;
+    [SerializeField] private CharacterManager CharacterManager;
 
     [Header("Active Buffs/Debuffs")]
     [SerializeField] private List<ActiveBuff> activeBuffs = new List<ActiveBuff>();
@@ -121,7 +121,7 @@ public class BuffManager : MonoBehaviour
 
     private void ApplyModifierDelta(Modifier mod, float deltaAbsolute, DistributedModifier state)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
 
         switch (mod.variable)
         {
@@ -199,7 +199,7 @@ public class BuffManager : MonoBehaviour
 
     private void RevertAppliedModifier(Modifier mod, DistributedModifier state)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
         switch (mod.variable)
         {
             case ModifierVar.physicalDamage:
@@ -312,51 +312,10 @@ public class BuffManager : MonoBehaviour
     }
 
     // Nova sobrecarga: aplica um BuffData (ScriptableObject) que pode opcionalmente distribuir o efeito ao longo do tempo
-    public void ApplyBuff(BuffData buffData)
-    {
-        if (buffData == null || character == null) return;
-
-        if (!buffData.distributeOverDuration || buffData.duration <= 0f)
-        {
-            ApplyBuff(buffData.buffName, buffData.duration, buffData.modifiers, buffData.isDebuff);
-            return;
-        }
-
-        var existing = distributedBuffs.Find(b => b.buffName == buffData.buffName);
-        if (existing != null)
-        {
-            existing.remainingTime = buffData.duration;
-            return;
-        }
-
-        var db = new DistributedBuff(buffData.buffName, buffData.duration, buffData.tickInterval);
-        foreach (var mod in buffData.modifiers)
-        {
-            DistributedModifier dm = new DistributedModifier();
-            dm.original = mod;
-
-            float totalAbs = CalculateModifierValue(mod);
-            float baseAbs = 0f;
-            if (mod.baseValue != 0f)
-            {
-                Modifier tmp = new Modifier { type = mod.type, variable = mod.variable, value = mod.baseValue };
-                baseAbs = CalculateModifierValue(tmp);
-            }
-
-            dm.appliedSoFar = 0f;
-            dm.appliedRounded = 0;
-
-            if (Mathf.Abs(baseAbs) > 0.00001f)
-            {
-                ApplyModifierDelta(mod, baseAbs, dm);
-            }
-
-            dm.totalAbsoluteValue = totalAbs - baseAbs;
-            db.mods.Add(dm);
-        }
-
-        distributedBuffs.Add(db);
-    }
+    // ❌ REMOVIDO: ApplyBuff(BuffData) - BuffData não tem mais duration/modifiers
+    // 📌 ARQUITETURA: BuffData é APENAS visual/áudio
+    // 📌 VALORES vêm do SkillData via BuffEffect.Execute()
+    // 📌 Use: ApplyBuff(string buffName, float duration, List<Modifier> modifiers, bool isDebuff, bool distributeOverTime, float tickInterval)
 
     // Aplica ou reverte um conjunto de modificadores ao personagem
     /// <summary>
@@ -366,7 +325,7 @@ public class BuffManager : MonoBehaviour
     private void ModifyModifiers(List<Modifier> modifiers, int multiplier = 1)
     {
         if (modifiers == null || modifiers.Count == 0) return;
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
         foreach (Modifier mod in modifiers)
         {
             float value = CalculateModifierValue(mod) * multiplier;
@@ -416,7 +375,7 @@ public class BuffManager : MonoBehaviour
     private void RemoveModifiers(List<Modifier> modifiers)
     {
         if (modifiers == null) return;
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
         foreach (Modifier mod in modifiers)
         {
             float value = CalculateModifierValue(mod);
@@ -466,7 +425,7 @@ public class BuffManager : MonoBehaviour
     // Remove os modificadores de um buff
     private void RemoveBuff(ActiveBuff buff)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
 
         foreach (Modifier mod in buff.modifiers)
         {
@@ -565,7 +524,7 @@ public class BuffManager : MonoBehaviour
     // Calcula o valor final do modificador baseado no tipo
     private float CalculateModifierValue(Modifier mod)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
 
         switch (mod.type)
         {
@@ -586,7 +545,7 @@ public class BuffManager : MonoBehaviour
     // Obtém o valor base de uma stat (sem modificadores de equipamento/externos)
     private float GetBaseValue(ModifierVar variable)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
 
         switch (variable)
         {
@@ -609,7 +568,7 @@ public class BuffManager : MonoBehaviour
     // Obtém o valor total atual de uma stat (com todos os modificadores)
     private float GetCurrentValue(ModifierVar variable)
     {
-        CharacterData data = character.Data;
+        CharacterData data = CharacterManager.Data;
 
         switch (variable)
         {

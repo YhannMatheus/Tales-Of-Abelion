@@ -7,7 +7,7 @@ public class ChaseState : State
         ia.animator?.SetState(IAState.Chase);
         ia.currentSpeed = ia.runSpeed;
         
-        Debug.Log($"[ChaseState] {ia.iaType} começou perseguição do alvo: {ia.currentTarget?.name}");
+        Debug.Log($"[ChaseState] {ia.CharacterManager.characterType} começou perseguição do alvo: {ia.currentTarget?.name}");
     }
 
     public override void UpdateState(IAManager ia)
@@ -38,7 +38,7 @@ public class ChaseState : State
             ia.animator.targetSpeedNormalized = 0f;
         }
         
-        Debug.Log($"[ChaseState] {ia.iaType} parou de perseguir");
+        Debug.Log($"[ChaseState] {ia.CharacterManager.characterType} parou de perseguir");
     }
 
     private bool HasValidTarget(IAManager ia)
@@ -48,7 +48,7 @@ public class ChaseState : State
             return false;
         }
 
-        Character targetChar = ia.currentTarget.GetComponent<Character>();
+        CharacterManager targetChar = ia.currentTarget.GetComponent<CharacterManager>();
         if (targetChar != null)
         {
             if (!targetChar.Data.IsAlive)
@@ -101,7 +101,7 @@ public class ChaseState : State
 
     private void HandleNoTarget(IAManager ia)
     {
-        Debug.Log($"[ChaseState] {ia.iaType} perdeu alvo válido");
+        Debug.Log($"[ChaseState] {ia.CharacterManager.characterType} perdeu alvo válido");
 
         ia.currentTarget = null;
 
@@ -117,7 +117,7 @@ public class ChaseState : State
 
     private void SwitchToAttack(IAManager ia)
     {
-        Debug.Log($"[ChaseState] {ia.iaType} alcançou o alvo! Mudando para Attack");
+        Debug.Log($"[ChaseState] {ia.CharacterManager.characterType} alcançou o alvo! Mudando para Attack");
 
         if (ia.CanUseState(IAState.Attack))
         {
@@ -125,7 +125,7 @@ public class ChaseState : State
         }
         else
         {
-            Debug.LogWarning($"[ChaseState] {ia.iaType} não pode usar AttackState!");
+            Debug.LogWarning($"[ChaseState] {ia.CharacterManager.characterType} não pode usar AttackState!");
         }
     }
 }

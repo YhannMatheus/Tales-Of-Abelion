@@ -10,7 +10,7 @@ public class PatrolState : State
 
     public override void EnterState(IAManager ia)
     {
-        if (ia.iaType == IaType.Ally)
+        if (ia.CharacterManager.characterType == CharacterType.Ally)
         {
             Debug.LogWarning($"[PatrolState] Aliados não devem usar estado de patrulha!");
             
@@ -28,7 +28,7 @@ public class PatrolState : State
         isWaiting = false;
         waitTimer = 0f;
         
-        Debug.Log($"[PatrolState] {ia.iaType} iniciou patrulha no ponto {ia.currentPatrolIndex}");
+        Debug.Log($"[PatrolState] {ia.CharacterManager.characterType} iniciou patrulha no ponto {ia.currentPatrolIndex}");
     }
 
     public override void UpdateState(IAManager ia)
@@ -63,7 +63,7 @@ public class PatrolState : State
         isWaiting = false;
         waitTimer = 0f;
         
-        Debug.Log($"[PatrolState] {ia.iaType} saiu de Patrol");
+        Debug.Log($"[PatrolState] {ia.CharacterManager.characterType} saiu de Patrol");
     }
 
     private void MoveTowardsPatrolPoint(IAManager ia)
@@ -103,7 +103,7 @@ public class PatrolState : State
     {
         hasReachedPoint = true;
         
-        Debug.Log($"[PatrolState] {ia.iaType} chegou no ponto {ia.currentPatrolIndex}");
+        Debug.Log($"[PatrolState] {ia.CharacterManager.characterType} chegou no ponto {ia.currentPatrolIndex}");
         
         ia.currentSpeed = 0f;
         ia.moveDirection = Vector3.zero;
@@ -154,7 +154,7 @@ public class PatrolState : State
             ia.currentPatrolIndex = 0;
         }
         
-        Debug.Log($"[PatrolState] {ia.iaType} indo para próximo ponto: {ia.currentPatrolIndex}");
+        Debug.Log($"[PatrolState] {ia.CharacterManager.characterType} indo para próximo ponto: {ia.currentPatrolIndex}");
         
         ia.currentSpeed = ia.walkSpeed;
     }

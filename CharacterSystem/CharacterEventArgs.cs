@@ -147,3 +147,74 @@ public class ReviveEventArgs : EventArgs
         FullRestore = fullRestore;
     }
 }
+
+/// <summary>
+/// EventArgs para mudanças em energia específica (Mana/Stamina/Fury)
+/// Usado pelo EnergyController para eventos detalhados
+/// </summary>
+public class EnergyTypeChangedEventArgs : EventArgs
+{
+    public EnergyType EnergyType { get; }
+    public float CurrentValue { get; }
+    public float MaxValue { get; }
+    public float PreviousValue { get; }
+    public float Delta { get; }
+    public bool IsPercentage { get; }
+
+    public EnergyTypeChangedEventArgs(EnergyType energyType, float currentValue, float maxValue, float previousValue, bool isPercentage = false)
+    {
+        EnergyType = energyType;
+        CurrentValue = currentValue;
+        MaxValue = maxValue;
+        PreviousValue = previousValue;
+        Delta = currentValue - previousValue;
+        IsPercentage = isPercentage;
+    }
+
+    /// <summary>
+    /// Retorna o valor atual como porcentagem (0-100)
+    /// </summary>
+    public float CurrentPercentage => MaxValue > 0 ? (CurrentValue / MaxValue) * 100f : 0f;
+
+    /// <summary>
+    /// Retorna o valor anterior como porcentagem (0-100)
+    /// </summary>
+    public float PreviousPercentage => MaxValue > 0 ? (PreviousValue / MaxValue) * 100f : 0f;
+}
+
+/// <summary>
+/// EventArgs para quando Fúria atinge o máximo
+/// </summary>
+public class FuryMaxReachedEventArgs : EventArgs
+{
+    public float FuryValue { get; }
+    public float MaxFury { get; }
+    public CharacterManager CharacterManager { get; }
+
+    public FuryMaxReachedEventArgs(float furyValue, float maxFury, CharacterManager characterManager)
+    {
+        FuryValue = furyValue;
+        MaxFury = maxFury;
+        CharacterManager = characterManager;
+    }
+}
+
+/// <summary>
+/// EventArgs para ganho de Fúria
+/// </summary>
+public class FuryGainedEventArgs : EventArgs
+{
+    public float AmountGained { get; }
+    public float CurrentFury { get; }
+    public float MaxFury { get; }
+    public FuryGainSource Source { get; }
+
+    public FuryGainedEventArgs(float amountGained, float currentFury, float maxFury, FuryGainSource source)
+    {
+        AmountGained = amountGained;
+        CurrentFury = currentFury;
+        MaxFury = maxFury;
+        Source = source;
+    }
+}
+

@@ -1,25 +1,23 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 // Efeito de buff/debuff
+// DURAÇÃO E VALORES são configurados no SkillData, não aqui!
 [CreateAssetMenu(fileName = "New Buff Effect", menuName = "Skills/Effects/Buff Effect")]
 public class BuffEffect : SkillEffect
 {
     [Header("Configuração do Buff")]
-    [Tooltip("Dados do buff a ser aplicado")]
+    [Tooltip("Dados base do buff (visual, nome, tipo)")]
     public BuffData buffData;
-    
-    [Tooltip("Duração do buff em segundos")]
-    public float duration = 5f;
-    
-    [Tooltip("Pode empilhar (stack)")]
-    public bool canStack = false;
-    
-    [Tooltip("Máximo de stacks")]
-    public int maxStacks = 1;
     
     [Header("Targeting")]
     [Tooltip("Aplica no caster ao invés do alvo")]
     public bool applyToSelf = false;
+    
+    [Header("Info")]
+    [Tooltip("Duração e modificadores são configurados no SkillData")]
+    [TextArea(2, 3)]
+    public string info = "Configure:\n- buffDuration\n- buffModifiers\n- distributeBuffOverTime\nno SkillData!";
 
     public override SkillEffectResult Execute(SkillContext context)
     {
@@ -40,8 +38,16 @@ public class BuffEffect : SkillEffect
             return result;
         }
 
+        if (context.SkillData == null)
+        {
+            LogError("SkillData não encontrado no contexto!");
+            result.Success = false;
+            result.ErrorMessage = "SkillData é null";
+            return result;
+        }
+
         // Determina alvo do buff
-        Character target = applyToSelf ? context.Caster : context.Target;
+        CharacterManager target = applyToSelf ? context.Caster : context.Target;
 
         if (target == null)
         {
@@ -62,24 +68,47 @@ public class BuffEffect : SkillEffect
             return result;
         }
 
-        // Aplica usando sistema apropriado
-        if (canStack)
+        // Pega valores configurados NO SKILLDATA
+        SkillData skillData = context.SkillData;
+        string buffName = buffData.buffName;
+        bool isDebuff = buffData.isDebuff;
+        float duration = skillData.buffDuration;
+        List<Modifier> modifiers = skillData.buffModifiers;
+        bool distributeOverTime = skillData.distributeBuffOverTime;
+        float tickInterval = skillData.buffTickInterval;
+
+        // Valida se skill tem configuração de buff
+        if (duration <= 0f)
         {
-            // TODO: Implementar ApplyBuffToSlot quando BuffManager tiver o método
-            // Por enquanto, usa ApplyBuff padrão
-            buffManager.ApplyBuff(buffData);
-            Debug.LogWarning($"[BuffEffect] Stacking não suportado ainda, aplicou buff normal");
+            LogWarning($"Skill '{skillData.skillName}' não tem buffDuration configurado!");
+            result.Success = false;
+            result.ErrorMessage = "buffDuration não configurado no SkillData";
+            return result;
         }
-        else
+
+        if (modifiers == null || modifiers.Count == 0)
         {
-            buffManager.ApplyBuff(buffData);
+            LogWarning($"Skill '{skillData.skillName}' não tem buffModifiers configurados!");
+            result.Success = false;
+            result.ErrorMessage = "buffModifiers não configurado no SkillData";
+            return result;
         }
+
+        // Aplica buff com valores configurados NO SKILLDATA
+        buffManager.ApplyBuff(
+            buffName, 
+            duration, 
+            modifiers, 
+            isDebuff, 
+            distributeOverTime, 
+            tickInterval
+        );
 
         // Preenche resultado
         result.Success = true;
-        result.AffectedTargets = new Character[] { target };
+        result.AffectedTargets = new CharacterManager[] { target };
 
-        Log($"Aplicou buff '{buffData.buffName}' em {target.Data.characterName} por {duration}s");
+        Log($"Aplicou buff '{buffName}' em {target.Data.characterName} por {duration}s com {modifiers.Count} modificadores");
 
         return result;
     }

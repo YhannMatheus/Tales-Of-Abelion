@@ -8,81 +8,109 @@ using UnityEngine;
 [RequireComponent(typeof(PlayerSkillManager))]
 public class PlayerManager : MonoBehaviour
 {
-    [Header("State Machine")]
-    [SerializeField] private bool useStateMachine = true; // Toggle para ativar/desativar state machine
+    [Header("STATE MACHINE ")]
+    [SerializeField] private bool useStateMachine;
     private PlayerStateMachine stateMachine;
 
-    [Header("Combat Settings")]
-    [Tooltip("Duração da animação de ataque básico em segundos")]
-    [SerializeField] private float attackDuration = 0.6f;
+    [Header("MOTOR")]
+    [SerializeField] private float rotationSpeed;
+    [SerializeField] private bool useSmoothRotation;
+    [SerializeField] private float movementThreshold;
+    [SerializeField] private float slowThreshold;
+    [SerializeField] private float buffedThreshold;
+    [SerializeField] private float destinationReachedThreshold;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float groundDistance;
+    [SerializeField] private LayerMask groundMask;
+
+    [Header("MOUSE - DETECTION")]
+    [SerializeField] private LayerMask clickableLayerMask = ~0;
+    [SerializeField] private float maxRaycastDistance;
     
-    [Tooltip("Permite rotacionar durante ataque?")]
-    [SerializeField] private bool canRotateDuringAttack = true;
+    [Header("ANIMATOR")]
+    [SerializeField] private float movementSmoothTime;
+    [SerializeField] private float animSlowThreshold;
+    [SerializeField] private float animBuffedThreshold;
+    [SerializeField] private bool debugAnimator;
 
-    [Header("Movement Settings")]
-    [Tooltip("Magnitude mínima de input para considerar que está se movendo")]
-    [SerializeField] private float movementThreshold = 0.1f;
+    [Header("COMBAT")]
+    [SerializeField] private float attackDuration;
+    [SerializeField] private bool canRotateDuringAttack;
 
-    [Header("Interaction Settings")]
-    [Tooltip("Rotaciona automaticamente para o objeto ao interagir?")]
-    [SerializeField] private bool autoRotateOnInteract = true;
+    [Header("INTERACTION")]
+    [SerializeField] private bool autoRotateOnInteract;
 
-    [Header("Casting Settings")]
-    [Tooltip("Permite rotacionar durante cast de habilidade?")]
-    [SerializeField] private bool canRotateDuringCast = true;
-    
-    [Tooltip("Cancelar cast ao tentar se mover?")]
-    [SerializeField] private bool canCancelCastByMoving = true;
+    [Header("CASTING")]
+    [SerializeField] private bool canRotateDuringCast;
+    [SerializeField] private bool canCancelCastByMoving;
 
-    [Header("Stun Settings")]
-    [Tooltip("Duração mínima de atordoamento (segundos)")]
-    [SerializeField] private float minStunDuration = 0.3f;
-    
-    [Tooltip("Duração máxima de atordoamento (segundos)")]
-    [SerializeField] private float maxStunDuration = 5.0f;
+    [Header("STUN")]
+    [SerializeField] private float minStunDuration;
+    [SerializeField] private float maxStunDuration;
 
-    [Header("Debug")]
-    [Tooltip("Mostra informações de estado na tela?")]
-    [SerializeField] private bool showDebugGUI = true;
-    
-    [Tooltip("Mostra logs de transição de estado no Console?")]
-    [SerializeField] private bool showStateLogs = true;
+    [Header("DEBUG")]
+    [SerializeField] private bool showDebugGUI;
+    [SerializeField] private bool showStateLogs;
 
     [Header("Components")]
-    private PlayerMotor motor;
-    private InputManager input;
     private CharacterAnimatorController animator;
-    private MouseManager mouse;
-    private Character character;
     private PlayerSkillManager skillManager;
     private Vector3 moveDirection;
+    private CharacterManager character;
+    private InputManager input;
+    private MouseManager mouse;
+    private PlayerMotor motor;
 
     // ========== Propriedades Públicas (para States acessarem) ==========
-    public PlayerMotor Motor => motor;
-    public InputManager Input => input;
     public CharacterAnimatorController Animator => animator;
-    public MouseManager Mouse => mouse;
-    public Character Character => character;
     public PlayerSkillManager SkillManager => skillManager;
+    public CharacterManager Character => character;
+    public InputManager Input => input;
+    public MouseManager Mouse => mouse;
+    public PlayerMotor Motor => motor;
 
     // ========== Configurações Públicas (para States acessarem) ==========
-    public float AttackDuration => attackDuration;
     public bool CanRotateDuringAttack => canRotateDuringAttack;
-    public float MovementThreshold => movementThreshold;
+    public bool CanCancelCastByMoving => canCancelCastByMoving;
     public bool AutoRotateOnInteract => autoRotateOnInteract;
     public bool CanRotateDuringCast => canRotateDuringCast;
-    public bool CanCancelCastByMoving => canCancelCastByMoving;
+    public float MovementThreshold => movementThreshold;
     public float MinStunDuration => minStunDuration;
     public float MaxStunDuration => maxStunDuration;
+    public float AttackDuration => attackDuration;
+    
+    // ========== Propriedades de Velocidade (para debug e UI) ==========
+    public float SpeedMultiplier => motor != null ? motor.SpeedMultiplier : 1f;
+    public bool IsMovingBuffed => motor != null && motor.GetSpeedType() == "BUFFED";
+    public bool IsMovingSlow => motor != null && motor.GetSpeedType() == "SLOW";
+    public string SpeedType => motor != null ? motor.GetSpeedType() : "NORMAL";
 
     private void Awake()
     {
-        motor = GetComponent<PlayerMotor>();
-        character = GetComponent<Character>();
-        mouse = GetComponent<MouseManager>();
-        skillManager = GetComponent<PlayerSkillManager>();
+        // Obtém componentes
+        character = GetComponent<CharacterManager>();
+        CharacterController controller = GetComponent<CharacterController>();
+        Animator anim = GetComponentInChildren<Animator>();
         input = Object.FindFirstObjectByType<InputManager>();
+        
+        motor = GetComponent<PlayerMotor>();
+        mouse = GetComponent<MouseManager>();
         animator = GetComponent<CharacterAnimatorController>();
+        skillManager = GetComponent<PlayerSkillManager>();
+        
+        // Inicializa componentes (injeta dependências E configurações via PlayerManager)
+        motor?.Initialize(controller, character);
+        motor?.ConfigureSettings(rotationSpeed, useSmoothRotation, slowThreshold, buffedThreshold, 
+                                 destinationReachedThreshold, groundCheck, groundDistance, groundMask);
+        
+        mouse?.Initialize();
+        mouse?.ConfigureSettings(clickableLayerMask, maxRaycastDistance);
+        
+        animator?.Initialize(anim, character);
+        animator?.ConfigureSettings(movementSmoothTime, animSlowThreshold, animBuffedThreshold, debugAnimator);
+        
+        // Inscreve animator em eventos do CharacterManager
+        animator?.SubscribeToCharacterEvents();
 
         // Inicializa State Machine
         if (useStateMachine)
@@ -120,6 +148,9 @@ public class PlayerManager : MonoBehaviour
             character.OnDeath -= OnCharacterDeath;
             character.OnRevive -= OnCharacterRevive;
         }
+        
+        // Desinscreve animator de eventos do CharacterManager
+        animator?.UnsubscribeFromCharacterEvents();
     }
 
     private void OnPlayerStateChanged(string previousState, string newState)
@@ -130,7 +161,7 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    private void OnCharacterDeath()
+    private void OnCharacterDeath(object sender, DeathEventArgs e)
     {
         if (useStateMachine && stateMachine != null)
         {
@@ -139,7 +170,7 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    private void OnCharacterRevive()
+    private void OnCharacterRevive(object sender, ReviveEventArgs e)
     {
         if (useStateMachine && stateMachine != null)
         {
@@ -150,15 +181,25 @@ public class PlayerManager : MonoBehaviour
 
     // ========== Métodos Públicos (para controle externo de estados) ==========
 
-    /// <summary>
-    /// Aplica stun ao player por uma duração
-    /// </summary>
     public void ApplyStun(float duration)
     {
         if (!useStateMachine || stateMachine == null) return;
         if (!character.Data.IsAlive) return; // Não pode stunnar se estiver morto
 
         stateMachine.SwitchState(new PlayerStunnedState(stateMachine, this, duration));
+    }
+    
+    public void RecalculateMovementSpeed()
+    {
+        if (motor != null)
+        {
+            motor.RecalculateBaseSpeed();
+        }
+        
+        if (animator != null)
+        {
+            animator.RecalculateBaseSpeed();
+        }
     }
 
     private void Update()
@@ -169,6 +210,9 @@ public class PlayerManager : MonoBehaviour
             // Verifica se está vivo antes de atualizar state machine
             if (character.Data.IsAlive)
             {
+                // Verifica se está no ar e não está morto ou stunado
+                CheckGroundedState();
+
                 stateMachine?.Update();
             }
 
@@ -178,24 +222,26 @@ public class PlayerManager : MonoBehaviour
             return; // Não executa código legado
         }
 
-        // ========== MODO LEGADO (sem State Machine) ==========
-        if (character.Data.IsAlive)
-        {
-            HandleMovement();
-        }
-        
+        // ========== MODO LEGADO (DESATIVADO - use State Machine) ==========
+        // ⚠️ Movimento WASD removido - agora usa apenas clique do mouse via State Machine
+        Debug.LogWarning("[PlayerManager] State Machine desativada! Ative 'useStateMachine' no Inspector.");
+
         motor.ApplyGravity();
-        
-        animator?.UpdateMovementSpeed(motor.CurrentSpeedNormalized, motor.IsGrounded);
+    }
+    
+    private void CheckGroundedState()
+    {
+        if (stateMachine == null) return;
 
-        if (input.interactButton)
-        {
-            HandleEventClick();
-        }
+        // Não verifica se estiver morto ou stunado (esses estados têm prioridade)
+        var currentState = stateMachine.CurrentState;
+        if (currentState is PlayerDeadState || currentState is PlayerStunnedState)
+            return;
 
-        if (input.attackInput)
+        // Se não está no chão e não está em FallingState, transita
+        if (!motor.IsGrounded && !(currentState is PlayerFallingState))
         {
-            HandleAttack();
+            stateMachine.SwitchState(new PlayerFallingState(stateMachine, this));
         }
     }
 
@@ -253,7 +299,7 @@ public class PlayerManager : MonoBehaviour
             animator.TriggerAbility(0);
             
             GameObject target = mouse.GetClickedObject();
-            Character targetChar = target != null ? target.GetComponent<Character>() : null;
+            CharacterManager targetChar = target != null ? target.GetComponent<CharacterManager>() : null;
             skillManager.UseSkill(0, mouse.GetMousePosition(), targetChar);
         }
         
@@ -280,5 +326,4 @@ public class PlayerManager : MonoBehaviour
         string permissions = $"Move: {stateMachine.CanMove()} | Attack: {stateMachine.CanAttack()} | Interact: {stateMachine.CanInteract()}";
         GUI.Label(new Rect(10, 40, 500, 25), permissions, style);
     }
-    
 }

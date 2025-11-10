@@ -1,16 +1,31 @@
 using UnityEngine;
 
+// Gerenciador de input do mouse - gerenciado pelo PlayerManager
+// NÃO usar independentemente - requer inicialização via Initialize()
 public class MouseManager : MonoBehaviour
 {
-    [Header("Detection Settings")]
-    [SerializeField] private LayerMask clickableLayerMask = ~0; // Tudo por padrão
-    [SerializeField] private float maxRaycastDistance = 1000f;
+    // Configurações injetadas pelo PlayerManager
+    private LayerMask clickableLayerMask = ~0;
+    private float maxRaycastDistance = 1000f;
 
     private Camera cam;
 
-    private void Awake()
+    // Inicializado pelo PlayerManager
+    public void Initialize()
     {
         cam = Camera.main;
+        
+        if (cam == null)
+        {
+            Debug.LogError("[MouseManager] Camera.main não encontrada! Certifique-se de que há uma câmera com tag MainCamera.");
+        }
+    }
+    
+    // Configurações injetadas pelo PlayerManager
+    public void ConfigureSettings(LayerMask layerMask, float maxDistance)
+    {
+        clickableLayerMask = layerMask;
+        maxRaycastDistance = maxDistance;
     }
 
     // Retorna a posição 3D no mundo onde o mouse está apontando
@@ -46,18 +61,18 @@ public class MouseManager : MonoBehaviour
         return Physics.Raycast(ray, out hitInfo, maxRaycastDistance, clickableLayerMask);
     }
 
-    // Verifica se o mouse está sobre um inimigo (Character com tag Enemy)
-    public bool IsMouseOverEnemy(out Character enemyCharacter)
+    // Verifica se o mouse está sobre um inimigo (CharacterManager com tag Enemy)
+    public bool IsMouseOverEnemy(out CharacterManager enemyCharacter)
     {
         enemyCharacter = null;
         GameObject clickedObject = GetClickedObject();
 
         if (clickedObject == null) return false;
 
-        Character character = clickedObject.GetComponent<Character>();
-        if (character != null && clickedObject.CompareTag("Enemy"))
+        CharacterManager CharacterManager = clickedObject.GetComponent<CharacterManager>();
+        if (CharacterManager != null && clickedObject.CompareTag("Enemy"))
         {
-            enemyCharacter = character;
+            enemyCharacter = CharacterManager;
             return true;
         }
 

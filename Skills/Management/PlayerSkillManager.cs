@@ -2,16 +2,14 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Gerenciador de skills do player (substituí PlayerAbilityManager)
+// Gerenciador de skills do player - gerenciado pelo PlayerManager
+// Usa RequireComponent pois precisa de CharacterManager para funcionar
 [DisallowMultipleComponent]
-[RequireComponent(typeof(Character))]
+[RequireComponent(typeof(CharacterManager))]
 public class PlayerSkillManager : MonoBehaviour
 {
-    [Header("═══ Slots de Skills ═══")]
-    [Tooltip("Slot de ataque básico (sempre disponível)")]
+    [Header(" Slots de Skills ")]
     public SkillSlot BasicAttackSlot = new SkillSlot();
-    
-    [Tooltip("Slots de skills (hotbar)")]
     public SkillSlot[] SkillSlots = new SkillSlot[6];
 
     // Eventos
@@ -22,14 +20,14 @@ public class PlayerSkillManager : MonoBehaviour
     public event Action<int> OnRequirementsNotMet;
 
     // Componentes
-    Character character;
+    CharacterManager CharacterManager;
     
     // Skills ativas sendo executadas
     readonly List<SkillExecutor> activeExecutors = new List<SkillExecutor>();
 
     void Awake()
     {
-        character = GetComponent<Character>();
+        CharacterManager = GetComponent<CharacterManager>();
         
         // Inicializa slots vazios
         for (int i = 0; i < SkillSlots.Length; i++)
@@ -51,7 +49,7 @@ public class PlayerSkillManager : MonoBehaviour
     }
 
     // Usa skill em slot específico
-    public bool UseSkill(int slotIndex, Vector3 targetPosition, Character targetCharacter = null)
+    public bool UseSkill(int slotIndex, Vector3 targetPosition, CharacterManager targetCharacter = null)
     {
         // Cria contexto
         SkillContext context = CreateContext(targetPosition, targetCharacter);
@@ -60,9 +58,9 @@ public class PlayerSkillManager : MonoBehaviour
     }
 
     // Usa basic attack
-    public bool UseBasicAttack(Character target)
+    public bool UseBasicAttack(CharacterManager target)
     {
-        SkillContext context = new SkillContext(character, target);
+        SkillContext context = new SkillContext(CharacterManager, target);
         return TryUseBasicAttack(context);
     }
 
@@ -102,16 +100,16 @@ public class PlayerSkillManager : MonoBehaviour
     bool ExecuteSkillFromSlot(SkillSlot slot, int slotIndex, SkillContext context)
     {
         // Valida slot
-        if (!slot.CanUse(character))
+        if (!slot.CanUse(CharacterManager))
         {
             Debug.Log($"[PlayerSkillManager] Skill '{slot.AssignedSkill.skillName}' não pode ser usada");
             
             // Dispara evento apropriado
-            if (!slot.AssignedSkill.requirements.IsMet(character))
+            if (!slot.AssignedSkill.requirements.IsMet(CharacterManager))
             {
                 OnRequirementsNotMet?.Invoke(slotIndex);
             }
-            else if (!slot.AssignedSkill.cost.CanAfford(character))
+            else if (!slot.AssignedSkill.cost.CanAfford(CharacterManager))
             {
                 OnInsufficientResources?.Invoke(slotIndex);
             }
@@ -122,7 +120,7 @@ public class PlayerSkillManager : MonoBehaviour
         var skill = slot.AssignedSkill;
         
         // Consome recursos
-        skill.ConsumeResources(character);
+        skill.ConsumeResources(CharacterManager);
 
         // Usa slot (inicia cooldown)
         slot.Use();
@@ -253,19 +251,19 @@ public class PlayerSkillManager : MonoBehaviour
     }
 
     // Cria contexto de skill
-    SkillContext CreateContext(Vector3 targetPosition, Character targetCharacter)
+    SkillContext CreateContext(Vector3 targetPosition, CharacterManager targetCharacter)
     {
-        SkillContext context = new SkillContext(character);
+        SkillContext context = new SkillContext(CharacterManager);
         context.TargetPosition = targetPosition;
         context.Target = targetCharacter;
 
         if (targetCharacter != null)
         {
-            context.Direction = (targetCharacter.transform.position - character.transform.position).normalized;
+            context.Direction = (targetCharacter.transform.position - CharacterManager.transform.position).normalized;
         }
         else if (targetPosition != Vector3.zero)
         {
-            context.Direction = (targetPosition - character.transform.position).normalized;
+            context.Direction = (targetPosition - CharacterManager.transform.position).normalized;
         }
 
         return context;

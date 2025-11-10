@@ -4,7 +4,7 @@ using UnityEngine;
 // Ataca continuamente até que o inimigo morra, saia de alcance, ou player clique em outro lugar
 public class PlayerAutoAttackingState : PlayerStateBase
 {
-    private Character targetEnemy;
+    private CharacterManager targetEnemy;
     private float attackRange = 2.5f; // Range de ataque (um pouco maior que range de movimento)
     private float attackDuration;
     private float attackTimer = 0f;
@@ -13,7 +13,7 @@ public class PlayerAutoAttackingState : PlayerStateBase
     // Tempo mínimo antes de poder cancelar o ataque com movimento
     private const float MINIMUM_ATTACK_TIME = 0.2f;
 
-    public PlayerAutoAttackingState(PlayerStateMachine stateMachine, PlayerManager player, Character target) 
+    public PlayerAutoAttackingState(PlayerStateMachine stateMachine, PlayerManager player, CharacterManager target) 
         : base(stateMachine, player)
     {
         targetEnemy = target;
@@ -119,7 +119,7 @@ public class PlayerAutoAttackingState : PlayerStateBase
     private void HandleRightClick()
     {
         // Verifica se clicou em OUTRO inimigo
-        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        if (player.Mouse.IsMouseOverEnemy(out CharacterManager enemyCharacter))
         {
             if (enemyCharacter.Data.IsAlive && enemyCharacter != targetEnemy)
             {
@@ -170,7 +170,7 @@ public class PlayerAutoAttackingState : PlayerStateBase
         var context = new SkillContext
         {
             Caster = player.Character,
-            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
             OriginPosition = player.transform.position,
             TargetPosition = player.Mouse.GetMousePosition()
         };

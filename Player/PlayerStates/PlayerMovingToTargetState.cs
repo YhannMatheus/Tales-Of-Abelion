@@ -6,7 +6,7 @@ public class PlayerMovingToTargetState : PlayerStateBase
 {
     private Vector3 targetPosition;
     private Transform targetTransform; // Para inimigos móveis
-    private Character targetCharacter; // Se for inimigo
+    private CharacterManager targetCharacter; // Se for inimigo
     private bool isTargetEnemy;
     private float attackRange = 2.0f; // Distância mínima para atacar
 
@@ -21,7 +21,7 @@ public class PlayerMovingToTargetState : PlayerStateBase
     }
 
     // Construtor para movimento até inimigo (ataque automático)
-    public PlayerMovingToTargetState(PlayerStateMachine stateMachine, PlayerManager player, Character enemyTarget) 
+    public PlayerMovingToTargetState(PlayerStateMachine stateMachine, PlayerManager player, CharacterManager enemyTarget) 
         : base(stateMachine, player)
     {
         targetCharacter = enemyTarget;
@@ -34,20 +34,22 @@ public class PlayerMovingToTargetState : PlayerStateBase
     {
         // Define estado de animação como Moving
         player.Animator?.SetMovingState();
-        
-        if (isTargetEnemy)
-        {
-            Debug.Log($"[MovingToTargetState] Movendo para atacar inimigo: {targetCharacter.name}");
-        }
-        else
-        {
-            Debug.Log($"[MovingToTargetState] Movendo para posição: {targetPosition}");
-        }
     }
 
     public override void UpdateState()
     {
-        // ========== VERIFICA NOVO INPUT DE BOTÃO DIREITO ==========
+        // ========== ATUALIZA DESTINO CONTINUAMENTE ENQUANTO BOTÃO PRESSIONADO ==========
+        if (player.Mouse.RightMouseButtonHeld && !isTargetEnemy)
+        {
+            Vector3 newDestination = player.Mouse.GetMousePosition();
+            if (newDestination != Vector3.zero)
+            {
+                targetPosition = newDestination;
+                player.Motor.ClearDestination(); // Força atualização no próximo frame
+            }
+        }
+        
+        // ========== VERIFICA NOVO CLIQUE DE BOTÃO DIREITO ==========
         if (player.Mouse.RightMouseButtonDown)
         {
             HandleRightClick();
@@ -57,7 +59,6 @@ public class PlayerMovingToTargetState : PlayerStateBase
         // ========== VERIFICA SE ALVO MORREU ==========
         if (isTargetEnemy && (targetCharacter == null || !targetCharacter.Data.IsAlive))
         {
-            Debug.Log("[MovingToTargetState] Alvo morreu, voltando para Idle");
             SwitchState(new PlayerIdleState(stateMachine, player));
             return;
         }
@@ -74,16 +75,7 @@ public class PlayerMovingToTargetState : PlayerStateBase
         // Se é inimigo e chegou na distância de ataque
         if (isTargetEnemy && distanceToTarget <= attackRange)
         {
-            Debug.Log("[MovingToTargetState] Na distância de ataque, iniciando auto-ataque");
             SwitchState(new PlayerAutoAttackingState(stateMachine, player, targetCharacter));
-            return;
-        }
-
-        // Se é posição fixa e chegou
-        if (!isTargetEnemy && player.Motor.HasReachedDestination())
-        {
-            Debug.Log("[MovingToTargetState] Chegou ao destino");
-            SwitchState(new PlayerIdleState(stateMachine, player));
             return;
         }
 
@@ -97,6 +89,13 @@ public class PlayerMovingToTargetState : PlayerStateBase
         {
             // Move até posição fixa
             player.Motor.MoveToDestination(targetPosition, player.Character.Data.TotalSpeed);
+        }
+
+        // Verifica se chegou ao destino (APÓS setar o destino no Motor)
+        if (!isTargetEnemy && player.Motor.HasReachedDestination())
+        {
+            SwitchState(new PlayerIdleState(stateMachine, player));
+            return;
         }
 
         // Rotaciona na direção do movimento
@@ -124,43 +123,57 @@ public class PlayerMovingToTargetState : PlayerStateBase
     {
         player.Animator?.UpdateMovementSpeed(0f, player.Motor.IsGrounded);
         player.Motor.Stop();
-        
-        Debug.Log("[MovingToTargetState] Saiu do estado MovingToTarget");
     }
 
     // Processa novo clique com botão direito
     private void HandleRightClick()
     {
         // Verifica se clicou em inimigo
-        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        if (player.Mouse.IsMouseOverEnemy(out CharacterManager enemyCharacter))
         {
             if (enemyCharacter.Data.IsAlive)
             {
-                Debug.Log($"[MovingToTargetState] Novo alvo de ataque: {enemyCharacter.name}");
-                SwitchState(new PlayerMovingToTargetState(stateMachine, player, enemyCharacter));
+                // Atualiza destino para o novo inimigo
+                targetCharacter = enemyCharacter;
+                targetTransform = enemyCharacter.transform;
+                targetPosition = targetTransform.position;
+                isTargetEnemy = true;
+                
+                // Limpa destino fixo anterior no Motor
+                player.Motor.ClearDestination();
+                
                 return;
             }
         }
 
-        // Clicou em chão/posição
+        // Clicou em chão/posição - atualiza destino direto
         Vector3 destination = player.Mouse.GetMousePosition();
         if (destination != Vector3.zero)
         {
-            Debug.Log($"[MovingToTargetState] Novo destino: {destination}");
-            SwitchState(new PlayerMovingToTargetState(stateMachine, player, destination));
+            // Atualiza para nova posição fixa
+            targetPosition = destination;
+            targetTransform = null;
+            targetCharacter = null;
+            isTargetEnemy = false;
+            
+            // Limpa destino anterior no Motor (será setado no próximo Update)
+            player.Motor.ClearDestination();
         }
     }
 
     private int CheckAbilityInputs()
     {
-        if (player.Input.ability1Input) return 1;
-        if (player.Input.ability2Input) return 2;
-        if (player.Input.ability3Input) return 3;
-        if (player.Input.ability4Input) return 4;
-        if (player.Input.ability5Input) return 5;
-        if (player.Input.ability6Input) return 6;
-        if (player.Input.ability7Input) return 7;
-        if (player.Input.ability8Input) return 8;
+        // Slots 1-6: Q, W, E, A, S, D (Habilidades principais)
+        if (player.Input.ability1Input) return 1; // Q
+        if (player.Input.ability2Input) return 2; // W
+        if (player.Input.ability3Input) return 3; // E
+        if (player.Input.ability4Input) return 4; // A
+        if (player.Input.ability5Input) return 5; // S
+        if (player.Input.ability6Input) return 6; // D
+        
+        // Slots 7-8: Z, X (Itens/Consumíveis)
+        if (player.Input.ability7Input) return 7; // Z
+        if (player.Input.ability8Input) return 8; // X
         
         return -1;
     }
@@ -178,7 +191,7 @@ public class PlayerMovingToTargetState : PlayerStateBase
         var context = new SkillContext
         {
             Caster = player.Character,
-            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
             OriginPosition = player.transform.position,
             TargetPosition = player.Mouse.GetMousePosition()
         };

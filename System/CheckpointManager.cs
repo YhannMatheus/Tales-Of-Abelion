@@ -32,7 +32,7 @@ public class CheckpointManager : MonoBehaviour
         currentCheckpoint = checkpoint;
     }
 
-    public void RespawnPlayer(Character player)
+    public void RespawnPlayer(CharacterManager player)
     {
         if (player == null) return;
 

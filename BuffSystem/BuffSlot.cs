@@ -30,9 +30,7 @@ public class BuffSlot
     {
         this.buffData = data;
         this.buffName = data != null ? data.buffName : this.buffName;
-        this.baseModifiers = data != null ? new List<Modifier>(data.modifiers) : this.baseModifiers;
-        this.duration = data != null ? data.duration : this.duration;
-        this.remainingTime = this.duration;
+        // BuffData não tem modifiers nem duration - esses valores vêm do SkillData
         this.isDebuff = data != null ? data.isDebuff : this.isDebuff;
         this.source = source;
         this.stackCount = 1;

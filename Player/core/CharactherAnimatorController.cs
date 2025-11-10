@@ -1,17 +1,24 @@
+using System.Collections;
 using System.Linq;
 using UnityEngine;
 
+// Controlador de animações - gerenciado pelo PlayerManager/IAManager
+// NÃO usar independentemente - requer inicialização via Initialize()
 public class CharacterAnimatorController : MonoBehaviour
 {
     [Header("References")]
     private Animator animator;
-    private Character character;
+    private CharacterManager CharacterManager;
     
-    [Header("Movement")]
-    [SerializeField] private float movementSmoothTime = 8f;
+    // Configurações injetadas pelo PlayerManager/IAManager
+    private float movementSmoothTime = 8f;
+    private float slowThreshold = 0.7f;
+    private float buffedThreshold = 1.3f;
+    private bool debugAnimator = false;
     
     [Header("Animation Parameters")]
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int SpeedMultiplierHash = Animator.StringToHash("SpeedMultiplier");
     private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
     private static readonly int IsDeathHash = Animator.StringToHash("isDeath");
     private static readonly int TakeDamageHash = Animator.StringToHash("TakeDamage");
@@ -26,6 +33,7 @@ public class CharacterAnimatorController : MonoBehaviour
     private static readonly int IsMovingHash = Animator.StringToHash("isMoving");
     private static readonly int IsAttackingHash = Animator.StringToHash("isAttacking");
     private static readonly int IsCastingHash = Animator.StringToHash("isCasting");
+    private static readonly int IsFallingHash = Animator.StringToHash("isFalling");
 
     private float currentSpeed = 0f;
     private bool isGrounded = true;
@@ -34,15 +42,21 @@ public class CharacterAnimatorController : MonoBehaviour
     private float abilityActiveTimer = 0f;
     private const float ABILITY_TIMEOUT = 5f;
     
-    [Header("Debug")]
-    [SerializeField] private bool debugAnimator = false;
+    // Flags para verificar existência de parâmetros no Animator
     private bool hasSpeedParameter = true;
+    private bool hasSpeedMultiplierParameter = true;
+    private bool hasAbilityActiveParameter = true;
+    private bool hasIsMovingParameter = true;
+    private bool hasIsFallingParameter = true;
+    
+    // Cache da velocidade base do personagem (para calcular multiplicador)
+    private float baseSpeed = 0f;
 
-    private void Awake()
+    // Inicializado pelo PlayerManager ou IAManager - componentes são injetados
+    public void Initialize(Animator anim, CharacterManager charComponent)
     {
-
-        animator = GetComponentInChildren<Animator>();
-        character = GetComponent<Character>();
+        animator = anim;
+        CharacterManager = charComponent;
 
         if (animator == null)
         {
@@ -51,48 +65,89 @@ public class CharacterAnimatorController : MonoBehaviour
             return;
         }
 
-        if (character == null)
+        if (CharacterManager == null)
         {
-            Debug.LogWarning($"[CharacterAnimatorController] No Character component found on {gameObject.name}");
+            Debug.LogWarning($"[CharacterAnimatorController] No CharacterManager component found on {gameObject.name}");
             enabled = false;
             return;
         }
 
-        // Verifica se o Animator possui o parâmetro "Speed" — se não, avisa para ajudar debugging
+        // Verifica quais parâmetros existem no Animator
         var paramNames = animator.parameters.Select(p => p.name).ToArray();
         hasSpeedParameter = paramNames.Any(n => n == "Speed");
+        hasSpeedMultiplierParameter = paramNames.Any(n => n == "SpeedMultiplier");
+        hasAbilityActiveParameter = paramNames.Any(n => n == "AbilityActive");
+        hasIsMovingParameter = paramNames.Any(n => n == "isMoving");
+        hasIsFallingParameter = paramNames.Any(n => n == "isFalling");
+        
         if (!hasSpeedParameter)
         {
             Debug.LogWarning($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'Speed'. Available: {string.Join(", ", paramNames)}");
         }
+        if (!hasSpeedMultiplierParameter && debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'SpeedMultiplier' (opcional)");
+        }
+        if (!hasAbilityActiveParameter && debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'AbilityActive' (normal para NPCs/inimigos)");
+        }
+        if (!hasIsMovingParameter && debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'isMoving' (opcional)");
+        }
+        if (!hasIsFallingParameter && debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'isFalling' (opcional)");
+        }
+        
+        // Cacheia velocidade base
+        if (CharacterManager != null && CharacterManager.Data != null)
+        {
+            baseSpeed = CharacterManager.Data.speed;
+            if (debugAnimator)
+            {
+                Debug.Log($"[CharacterAnimatorController] Base speed capturada: {baseSpeed}");
+            }
+        }
+    }
+    
+    // Configurações injetadas pelo PlayerManager/IAManager
+    public void ConfigureSettings(float smoothTime, float slowThr, float buffedThr, bool debug)
+    {
+        movementSmoothTime = smoothTime;
+        slowThreshold = slowThr;
+        buffedThreshold = buffedThr;
+        debugAnimator = debug;
     }
 
-    private void OnEnable()
+    // Inscreve em eventos do CharacterManager - chamado após Initialize()
+    public void SubscribeToCharacterEvents()
     {
-
-        if (character != null)
+        if (CharacterManager != null)
         {
-            character.OnDeath += HandleDeath;
-            character.OnRevive += HandleRevive;
-            character.OnLevelUp += HandleLevelUp;
+            CharacterManager.OnDeath += HandleDeath;
+            CharacterManager.OnRevive += HandleRevive;
+            CharacterManager.OnLevelUp += HandleLevelUp;
         }
     }
 
-    private void OnDisable()
+    // Desinscreve de eventos do CharacterManager
+    public void UnsubscribeFromCharacterEvents()
     {
-
-        if (character != null)
+        if (CharacterManager != null)
         {
-            character.OnDeath -= HandleDeath;
-            character.OnRevive -= HandleRevive;
-            character.OnLevelUp -= HandleLevelUp;
+            CharacterManager.OnDeath -= HandleDeath;
+            CharacterManager.OnRevive -= HandleRevive;
+            CharacterManager.OnLevelUp -= HandleLevelUp;
         }
     }
 
     private void Update()
     {
         // Auto-reset de AbilityActive se passar do timeout (segurança contra travamentos)
-        if (animator != null && animator.GetBool(AbilityActiveHash))
+        // Apenas verifica se o parâmetro existe no Animator
+        if (animator != null && hasAbilityActiveParameter && animator.GetBool(AbilityActiveHash))
         {
             abilityActiveTimer += Time.deltaTime;
             if (abilityActiveTimer > ABILITY_TIMEOUT)
@@ -107,18 +162,12 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Atualiza velocidade de movimento no animator
-    /// IMPORTANTE: Só funciona quando isMoving=true (MovingState controla)
-    /// Idle não usa Speed - é estado puro
-    /// </summary>
     public void UpdateMovementSpeed(float targetSpeed, bool grounded = true)
     {
         if (animator == null) return;
         
-        // CRÍTICO: Só atualiza Speed se estiver em MOVING state
-        // Idle é estado puro e não deve receber updates de Speed
-        if (!animator.GetBool(IsMovingHash))
+        // Verifica se o parâmetro isMoving existe antes de usá-lo
+        if (hasIsMovingParameter && !animator.GetBool(IsMovingHash))
         {
             if (debugAnimator)
             {
@@ -143,25 +192,46 @@ public class CharacterAnimatorController : MonoBehaviour
             newSpeed = Mathf.Lerp(currentSpeed, 0f, movementSmoothTime * Time.deltaTime);
         }
 
-        if (debugAnimator)
-        {
-            Debug.Log($"[CharacterAnimatorController] UpdateMovementSpeed: target={targetSpeed:F2}, grounded={grounded}, current(before)={currentSpeed:F2}, new={newSpeed:F2}");
-        }
-
         currentSpeed = newSpeed;
 
+        // Atualiza parâmetro Speed (normalizado 0-1)
         if (hasSpeedParameter)
         {
             animator.SetFloat(SpeedHash, currentSpeed);
+        }
+        
+        // Calcula e atualiza SpeedMultiplier para diferentes animações de corrida
+        if (hasSpeedMultiplierParameter && baseSpeed > 0f)
+        {
+            // Pega a velocidade total atual do personagem (pode ser afetada por buffs/debuffs)
+            float currentTotalSpeed = CharacterManager.Data.TotalSpeed;
+            
+            // Calcula multiplicador (1.0 = velocidade normal, <1.0 = slow, >1.0 = buffed)
+            float speedMultiplier = currentTotalSpeed / baseSpeed;
+            
+            animator.SetFloat(SpeedMultiplierHash, speedMultiplier);
+            
+            if (debugAnimator)
+            {
+                string speedType = "NORMAL";
+                if (speedMultiplier < slowThreshold) speedType = "SLOW";
+                else if (speedMultiplier > buffedThreshold) speedType = "BUFFED";
+                
+                Debug.Log($"[CharacterAnimatorController] Speed: {currentSpeed:F2} | Total: {currentTotalSpeed:F2} | Base: {baseSpeed:F2} | Multiplier: {speedMultiplier:F2} ({speedType})");
+            }
+        }
+        else if (debugAnimator && hasSpeedMultiplierParameter)
+        {
+            Debug.LogWarning($"[CharacterAnimatorController] UpdateMovementSpeed: target={targetSpeed:F2}, grounded={grounded}, Speed={currentSpeed:F2}");
         }
     }
 
     public void TriggerAttack()
     {
-        if (animator == null || !character.Data.IsAlive) return;
+        if (animator == null || !CharacterManager.Data.IsAlive) return;
         
-        // Valida se não está em outra ação
-        if (animator.GetBool(AbilityActiveHash))
+        // Valida se não está em outra ação (apenas se parâmetro existir)
+        if (hasAbilityActiveParameter && animator.GetBool(AbilityActiveHash))
         {
             if (debugAnimator)
             {
@@ -172,19 +242,102 @@ public class CharacterAnimatorController : MonoBehaviour
         
         // Zera velocidade para evitar deslizamento durante ataque
         currentSpeed = 0f;
-        animator.SetFloat(SpeedHash, 0f);
+        if (hasSpeedParameter)
+        {
+            animator.SetFloat(SpeedHash, 0f);
+        }
         
         animator.SetTrigger(AttackHash);
+        
+        // 📌 SINCRONIZA velocidade da animação com attack speed do personagem
+        StartCoroutine(SyncAttackAnimationSpeed());
         
         if (debugAnimator)
         {
             Debug.Log("[CharacterAnimatorController] Attack triggered, speed reset to 0");
         }
     }
+    
+    /// <summary>
+    /// Sincroniza a velocidade da animação de ataque com a velocidade de ataque do personagem.
+    /// Se o personagem ataca mais rápido que a animação, acelera a animação para evitar bugs visuais.
+    /// 
+    /// EXEMPLO: Se attackSpeed = 2 (2 atks/seg = 0.5s por ataque) e animação dura 1.5s,
+    /// a animação deve acelerar 3x (1.5s / 0.5s = 3.0) para caber no tempo correto.
+    /// </summary>
+    private System.Collections.IEnumerator SyncAttackAnimationSpeed()
+    {
+        // Aguarda 1 frame para o Animator processar o Trigger
+        yield return null;
+        
+        // Busca o estado de ataque no Animator (layer 0 = Base Layer)
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        
+        // Verifica se entrou em um estado de ataque (pode ter vários estados com "attack" no nome)
+        if (!stateInfo.IsName("Attack") && !stateInfo.IsTag("Attack"))
+        {
+            // Se não encontrou por nome/tag, tenta procurar por hash
+            // (Adapte conforme seus estados no Animator - pode ser "BasicAttack", "Attack01", etc.)
+            if (debugAnimator)
+            {
+                Debug.LogWarning($"[CharacterAnimatorController] Estado de ataque não encontrado. Estado atual: {stateInfo.fullPathHash}");
+            }
+            yield break;
+        }
+        
+        // Pega a duração da animação atual (em segundos)
+        float animationDuration = stateInfo.length;
+        
+        // Pega a velocidade de ataque do personagem (ataques por segundo)
+        float attackSpeed = CharacterManager.Data.TotalAttackSpeed;
+        
+        // Calcula o tempo desejado por ataque (inverso da velocidade)
+        // Ex: 2 atks/seg = 0.5 segundos por ataque
+        float desiredAttackDuration = 1f / attackSpeed;
+        
+        // Calcula o multiplicador de velocidade necessário
+        // Ex: animação de 1.5s com desiredDuration de 0.5s = multiplier de 3.0
+        float speedMultiplier = animationDuration / desiredAttackDuration;
+        
+        // Limita o multiplicador para evitar animações muito lentas ou muito rápidas
+        // Min 0.5x (metade da velocidade) até 5.0x (5 vezes mais rápido)
+        speedMultiplier = Mathf.Clamp(speedMultiplier, 0.5f, 5.0f);
+        
+        // Aplica a velocidade apenas se for diferente de 1.0 (normal)
+        if (Mathf.Abs(speedMultiplier - 1f) > 0.01f)
+        {
+            animator.speed = speedMultiplier;
+            
+            if (debugAnimator)
+            {
+                Debug.Log($"[CharacterAnimatorController] ATTACK SYNC: AnimDuration={animationDuration:F2}s | AttackSpeed={attackSpeed:F2}/s | DesiredDuration={desiredAttackDuration:F2}s | Multiplier={speedMultiplier:F2}x");
+            }
+            
+            // Aguarda a duração ajustada da animação
+            yield return new WaitForSeconds(animationDuration / speedMultiplier);
+            
+            // Restaura velocidade normal do Animator
+            animator.speed = 1f;
+        }
+        else if (debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Attack speed match - sem necessidade de ajuste (multiplier={speedMultiplier:F2})");
+        }
+    }
 
     public void TriggerAbility(int abilityIndex)
     {
-        if (animator == null || !character.Data.IsAlive) return;
+        if (animator == null || !CharacterManager.Data.IsAlive) return;
+        
+        // Se o Animator não tem suporte a habilidades, ignora
+        if (!hasAbilityActiveParameter)
+        {
+            if (debugAnimator)
+            {
+                Debug.LogWarning($"[CharacterAnimatorController] Animator on {gameObject.name} does not support abilities (missing AbilityActive parameter)");
+            }
+            return;
+        }
         
         // Valida se não está em outra habilidade
         if (animator.GetBool(AbilityActiveHash))
@@ -198,7 +351,10 @@ public class CharacterAnimatorController : MonoBehaviour
         
         // Zera velocidade para evitar deslizamento durante habilidade
         currentSpeed = 0f;
-        animator.SetFloat(SpeedHash, 0f);
+        if (hasSpeedParameter)
+        {
+            animator.SetFloat(SpeedHash, 0f);
+        }
         
         animator.SetInteger(AbilityIndexHash, abilityIndex);
         animator.SetBool(AbilityActiveHash, true);
@@ -210,12 +366,9 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Dispara animação de receber dano (diferente de stun)
-    /// </summary>
     public void TriggerTakeDamage()
     {
-        if (animator == null || !character.Data.IsAlive) return;
+        if (animator == null || !CharacterManager.Data.IsAlive) return;
         animator.SetTrigger(TakeDamageHash);
         
         if (debugAnimator)
@@ -224,9 +377,6 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Define estado de stun (bool, não trigger)
-    /// </summary>
     public void SetStunned(bool stunned)
     {
         if (animator == null) return;
@@ -241,21 +391,35 @@ public class CharacterAnimatorController : MonoBehaviour
     public void EndAbility()
     {
         if (animator == null) return;
-        animator.SetBool(AbilityActiveHash, false);
+        
+        // Apenas reseta se o parâmetro existir
+        if (hasAbilityActiveParameter)
+        {
+            animator.SetBool(AbilityActiveHash, false);
+        }
         abilityActiveTimer = 0f;
         
         if (debugAnimator)
         {
-            Debug.Log("[CharacterAnimatorController] Ability ended, AbilityActive reset to false");
+            Debug.Log("[CharacterAnimatorController] Ability ended, reset ability active flag");
+        }
+    }
+
+    /// <summary>
+    /// Recalcula a velocidade base do personagem. Use quando equipamentos ou nível mudarem.
+    /// </summary>
+    public void RecalculateBaseSpeed()
+    {
+        if (CharacterManager == null) return;
+        baseSpeed = CharacterManager.Data.speed;
+        
+        if (debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Base speed recalculated: {baseSpeed}");
         }
     }
 
     // ========== Controle de Estados ==========
-
-    /// <summary>
-    /// Ativa estado Idle (desativa outros estados)
-    /// IMPORTANTE: Idle é estado PURO - não controla Speed, apenas para
-    /// </summary>
     public void SetIdleState()
     {
         if (animator == null) return;
@@ -264,6 +428,12 @@ public class CharacterAnimatorController : MonoBehaviour
         animator.SetBool(IsMovingHash, false);
         animator.SetBool(IsAttackingHash, false);
         animator.SetBool(IsCastingHash, false);
+        
+        // Limpa flag de queda ao retornar para idle
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, false);
+        }
         
         // NÃO zera Speed aqui - Idle é estado puro sem controle de velocidade
         // MovingState é responsável por controlar Speed
@@ -274,9 +444,6 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Ativa estado Moving (desativa outros estados)
-    /// </summary>
     public void SetMovingState()
     {
         if (animator == null) return;
@@ -286,15 +453,18 @@ public class CharacterAnimatorController : MonoBehaviour
         animator.SetBool(IsAttackingHash, false);
         animator.SetBool(IsCastingHash, false);
         
+        // Limpa flag de queda ao começar a mover
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, false);
+        }
+        
         if (debugAnimator)
         {
             Debug.Log("[CharacterAnimatorController] State set to MOVING");
         }
     }
 
-    /// <summary>
-    /// Ativa estado Attacking (desativa outros estados, zera velocidade)
-    /// </summary>
     public void SetAttackingState()
     {
         if (animator == null) return;
@@ -303,6 +473,12 @@ public class CharacterAnimatorController : MonoBehaviour
         animator.SetBool(IsMovingHash, false);
         animator.SetBool(IsAttackingHash, true);
         animator.SetBool(IsCastingHash, false);
+        
+        // Limpa flag de queda ao atacar
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, false);
+        }
         
         // Zera velocidade para evitar deslizamento
         currentSpeed = 0f;
@@ -314,9 +490,6 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Ativa estado Casting (desativa outros estados, zera velocidade)
-    /// </summary>
     public void SetCastingState()
     {
         if (animator == null) return;
@@ -325,6 +498,12 @@ public class CharacterAnimatorController : MonoBehaviour
         animator.SetBool(IsMovingHash, false);
         animator.SetBool(IsAttackingHash, false);
         animator.SetBool(IsCastingHash, true);
+        
+        // Limpa flag de queda ao iniciar cast
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, false);
+        }
         
         // Zera velocidade para evitar deslizamento
         currentSpeed = 0f;
@@ -336,11 +515,36 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
+    public void SetFallingState()
+    {
+        if (animator == null) return;
+        
+        animator.SetBool(IsIdleHash, false);
+        animator.SetBool(IsMovingHash, false);
+        animator.SetBool(IsAttackingHash, false);
+        animator.SetBool(IsCastingHash, false);
+        
+        // Ativa flag de queda se existir
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, true);
+        }
+        
+        // Zera velocidade horizontal
+        currentSpeed = 0f;
+        if (hasSpeedParameter)
+        {
+            animator.SetFloat(SpeedHash, 0f);
+        }
+        
+        if (debugAnimator)
+        {
+            Debug.Log("[CharacterAnimatorController] State set to FALLING, speed forced to 0");
+        }
+    }
+
     // ========== Métodos Utilitários ==========
 
-    /// <summary>
-    /// Reseta todos os triggers pendentes (evita animações tocando em momentos errados)
-    /// </summary>
     public void ResetAllTriggers()
     {
         if (animator == null) return;
@@ -355,22 +559,29 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Reseta completamente o animator para estado inicial limpo
-    /// Útil após morte, revive, teleporte ou bugs
-    /// </summary>
     public void ResetAnimatorState()
     {
         if (animator == null) return;
         
         // Reseta bools
         animator.SetBool(IsDeathHash, false);
-        animator.SetBool(AbilityActiveHash, false);
+        if (hasAbilityActiveParameter)
+        {
+            animator.SetBool(AbilityActiveHash, false);
+        }
         animator.SetBool(IsGroundedHash, true);
+        
+        if (hasIsFallingParameter)
+        {
+            animator.SetBool(IsFallingHash, false);
+        }
         
         // Reseta floats
         currentSpeed = 0f;
-        animator.SetFloat(SpeedHash, 0f);
+        if (hasSpeedParameter)
+        {
+            animator.SetFloat(SpeedHash, 0f);
+        }
         
         // Reseta ints
         animator.SetInteger(AbilityIndexHash, -1);
@@ -387,7 +598,8 @@ public class CharacterAnimatorController : MonoBehaviour
         }
     }
 
-    private void HandleDeath()
+    // Event handler para morte - assinatura EventHandler<DeathEventArgs>
+    private void HandleDeath(object sender, DeathEventArgs e)
     {
         if (animator == null) return;
         
@@ -395,23 +607,30 @@ public class CharacterAnimatorController : MonoBehaviour
         ResetAllTriggers();
         
         // Para todas as ações
-        animator.SetBool(AbilityActiveHash, false);
+        if (hasAbilityActiveParameter)
+        {
+            animator.SetBool(AbilityActiveHash, false);
+        }
         animator.SetBool(IsDeathHash, true);
         
         // Zera velocidade
         currentSpeed = 0f;
-        animator.SetFloat(SpeedHash, 0f);
+        if (hasSpeedParameter)
+        {
+            animator.SetFloat(SpeedHash, 0f);
+        }
         
         // Reseta timers
         abilityActiveTimer = 0f;
         
         if (debugAnimator)
         {
-            Debug.Log("[CharacterAnimatorController] HandleDeath: animator resetado para estado de morte");
+            Debug.Log($"[CharacterAnimatorController] HandleDeath: {e.CharacterName} morreu (Tipo: {e.CharacterType})");
         }
     }
 
-    private void HandleRevive()
+    // Event handler para revive - assinatura EventHandler<ReviveEventArgs>
+    private void HandleRevive(object sender, ReviveEventArgs e)
     {
         if (animator == null) return;
         
@@ -420,13 +639,19 @@ public class CharacterAnimatorController : MonoBehaviour
         
         if (debugAnimator)
         {
-            Debug.Log("[CharacterAnimatorController] HandleRevive: animator completamente resetado");
+            Debug.Log($"[CharacterAnimatorController] HandleRevive: restaurado {e.RestoredHealth} HP e {e.RestoredEnergy} energia");
         }
     }
 
-    private void HandleLevelUp(int newLevel)
+    // Event handler para level up - assinatura EventHandler<LevelUpEventArgs>
+    private void HandleLevelUp(object sender, LevelUpEventArgs e)
     {
         if (animator == null) return;
         animator.SetTrigger(LevelUpHash);
+        
+        if (debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] HandleLevelUp: Level {e.PreviousLevel} → {e.NewLevel}");
+        }
     }
 }

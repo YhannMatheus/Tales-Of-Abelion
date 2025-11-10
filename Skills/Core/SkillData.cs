@@ -58,8 +58,72 @@ public class SkillData : ScriptableObject
     public TargetingData targeting = new TargetingData();
 
     [Header("═══ Efeitos ═══")]
-    [Tooltip("Lista de efeitos executados quando skill é usada")]
+    [Tooltip("Lista de efeitos executados quando skill é usada (SEM valores, só lógica)")]
     public List<SkillEffect> effects = new List<SkillEffect>();
+
+    [Header("═══ Damage Configuration ═══")]
+    [Tooltip("Dano base da skill")]
+    public float baseDamage = 0f;
+    
+    [Tooltip("Tipo de dano")]
+    public SkillDamageType damageType = SkillDamageType.Physical;
+    
+    [Tooltip("Como o dano escala com stats")]
+    public DamageScaling damageScaling = DamageScaling.Physical;
+    
+    [Tooltip("Multiplicador de Physical Damage do caster")]
+    [Range(0f, 5f)]
+    public float physicalDamageRatio = 1f;
+    
+    [Tooltip("Multiplicador de Magical Damage do caster")]
+    [Range(0f, 5f)]
+    public float magicalDamageRatio = 0f;
+    
+    [Tooltip("Multiplicador de HP máximo")]
+    [Range(0f, 1f)]
+    public float healthRatio = 0f;
+    
+    [Tooltip("Ignora defesa do alvo")]
+    public bool ignoresArmor = false;
+    
+    [Tooltip("Pode dar critical hit")]
+    public bool canCrit = true;
+    
+    [Tooltip("Multiplicador de crítico")]
+    public float critMultiplier = 2f;
+
+    [Header("═══ Area Configuration ═══")]
+    [Tooltip("Raio da área (se usar AreaEffect)")]
+    public float areaRadius = 3f;
+    
+    [Tooltip("Formato da área")]
+    public SkillAreaShape areaShape = SkillAreaShape.Circle;
+    
+    [Tooltip("Ângulo do cone (se shape = Cone)")]
+    [Range(0f, 360f)]
+    public float coneAngle = 90f;
+    
+    [Tooltip("Distância forward do caster")]
+    public float forwardOffset = 0f;
+    
+    [Tooltip("Filtro de alvos")]
+    public TargetFilter targetFilter = TargetFilter.Enemies;
+    
+    [Tooltip("Número máximo de alvos (0 = ilimitado)")]
+    public int maxTargets = 0;
+
+    [Header("═══ Buff/Debuff Configuration ═══")]
+    [Tooltip("Duração do buff/debuff aplicado pela skill (em segundos)")]
+    public float buffDuration = 0f;
+    
+    [Tooltip("Modificadores de stats aplicados pela skill")]
+    public List<Modifier> buffModifiers = new List<Modifier>();
+    
+    [Tooltip("Distribuir efeito ao longo do tempo (DoT/HoT)")]
+    public bool distributeBuffOverTime = false;
+    
+    [Tooltip("Intervalo entre ticks do buff (se distribuído)")]
+    public float buffTickInterval = 1f;
 
     [Header("═══ Visual/Audio ═══")]
     [Tooltip("Prefab de efeito visual (spawn no caster)")]
@@ -80,7 +144,7 @@ public class SkillData : ScriptableObject
     public bool canUpgrade = false;
 
     // Valida se skill pode ser usada
-    public bool CanUse(Character caster)
+    public bool CanUse(CharacterManager caster)
     {
         if (caster == null)
             return false;
@@ -103,7 +167,7 @@ public class SkillData : ScriptableObject
     }
 
     // Consome recursos da skill
-    public void ConsumeResources(Character caster)
+    public void ConsumeResources(CharacterManager caster)
     {
         if (caster == null)
             return;

@@ -15,14 +15,14 @@ public class ReviveToken : MonoBehaviour
     public float floatAmplitude = 0.5f;
 
     private MonoBehaviour _deadEntity;
-    private Character _deadCharacter;
+    private CharacterManager _deadCharacter;
     private IAManager _deadAlly;
     private float _spawnTime;
     private Vector3 _initialPosition;
     private bool _isPlayerNearby;
     private bool _isReviving;
     private float _reviveProgress;
-    private Character _playerReviving;
+    private CharacterManager _playerReviving;
     private InputManager _inputManager;
 
     public bool IsReviving => _isReviving;
@@ -45,11 +45,11 @@ public class ReviveToken : MonoBehaviour
         }
     }
 
-    public void Initialize(Character deadCharacter)
+    public void Initialize(CharacterManager deadCharacter)
     {
         _deadCharacter = deadCharacter;
         _deadEntity = deadCharacter;
-        Debug.Log($"[ReviveToken] Token criado para Character: {deadCharacter.Data.characterName}");
+        Debug.Log($"[ReviveToken] Token criado para CharacterManager: {deadCharacter.Data.characterName}");
     }
 
     public void Initialize(IAManager deadAlly)
@@ -59,7 +59,7 @@ public class ReviveToken : MonoBehaviour
         Debug.Log($"[ReviveToken] Token criado para IAManager: {deadAlly.Data.characterName}");
     }
 
-    public void SetAllyToRevive(Character ally)
+    public void SetAllyToRevive(CharacterManager ally)
     {
         Initialize(ally);
     }
@@ -116,12 +116,12 @@ public class ReviveToken : MonoBehaviour
 
         foreach (Collider hit in hits)
         {
-            Character character = hit.GetComponent<Character>();
+            CharacterManager CharacterManager = hit.GetComponent<CharacterManager>();
 
-            if (character != null && character.characterType == CharacterType.Player)
+            if (CharacterManager != null && CharacterManager.characterType == CharacterType.Player)
             {
                 foundPlayer = true;
-                _playerReviving = character;
+                _playerReviving = CharacterManager;
                 break;
             }
         }
@@ -175,7 +175,7 @@ public class ReviveToken : MonoBehaviour
         {
             _deadCharacter.transform.position = transform.position;
             _deadCharacter.Revive();
-            Debug.Log($"[ReviveToken] Character {_deadCharacter.Data.characterName} foi revivido!");
+            Debug.Log($"[ReviveToken] CharacterManager {_deadCharacter.Data.characterName} foi revivido!");
         }
         else if (_deadAlly != null)
         {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "NewRaceData", menuName = "Character System/RaceData")]
+[CreateAssetMenu(fileName = "NewRaceData", menuName = "CharacterManager System/RaceData")]
 public class RaceData : ScriptableObject
 {
     [Header("Basic Information")]

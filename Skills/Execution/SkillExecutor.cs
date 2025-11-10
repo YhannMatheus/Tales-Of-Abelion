@@ -16,7 +16,7 @@ public class SkillExecutor : MonoBehaviour
     public bool WasCancelled { get; private set; }
     
     // Referência ao caster
-    Character caster;
+    CharacterManager caster;
     
     // Coroutine de execução
     Coroutine executionCoroutine;
@@ -101,7 +101,7 @@ public class SkillExecutor : MonoBehaviour
                 yield return null;
 
                 // Verifica cancelamento por movimento
-                // TODO: Implementar quando Character tiver acesso ao Motor
+                // TODO: Implementar quando CharacterManager tiver acesso ao Motor
                 /*
                 if (SkillData.canceledByMovement && caster.Motor != null && caster.Motor.IsMoving)
                 {

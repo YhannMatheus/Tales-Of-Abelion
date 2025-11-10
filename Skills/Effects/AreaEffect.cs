@@ -1,35 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Efeito de área (aplica outros efeitos em área) - renomeado para SkillAreaEffect
+// Efeito de área (aplica outros efeitos em área)
+// TODOS OS VALORES são configurados no SkillData, não aqui!
 [CreateAssetMenu(fileName = "New Area Effect", menuName = "Skills/Effects/Area Effect")]
 public class SkillAreaEffect : SkillEffect
 {
-    [Header("Configuração de Área")]
-    [Tooltip("Raio da área")]
-    public float radius = 3f;
-    
-    [Tooltip("Formato da área")]
-    public SkillAreaShape shape = SkillAreaShape.Circle;
-    
-    [Tooltip("Ângulo do cone (se shape = Cone)")]
-    [Range(0f, 360f)]
-    public float coneAngle = 90f;
-    
-    [Tooltip("Distância forward do caster")]
-    public float forwardOffset = 0f;
-    
-    [Header("Targeting")]
-    [Tooltip("Filtro de alvos")]
-    public TargetFilter targetFilter = TargetFilter.Enemies;
-    
+    [Header("Configuração")]
     [Tooltip("Layer mask de detecção")]
     public LayerMask detectionLayers = ~0;
     
-    [Tooltip("Número máximo de alvos (0 = ilimitado)")]
-    public int maxTargets = 0;
-    
-    [Header("Efeitos Aplicados")]
     [Tooltip("Efeitos aplicados em cada alvo dentro da área")]
     public List<SkillEffect> effectsPerTarget = new List<SkillEffect>();
     
@@ -39,6 +19,11 @@ public class SkillAreaEffect : SkillEffect
     
     [Tooltip("Duração do VFX")]
     public float vfxDuration = 1f;
+    
+    [Header("Info")]
+    [Tooltip("Configure valores de área no SkillData:")]
+    [TextArea(3, 5)]
+    public string info = "Configure no SkillData:\n- areaRadius\n- areaShape\n- coneAngle\n- forwardOffset\n- targetFilter\n- maxTargets";
 
     public override SkillEffectResult Execute(SkillContext context)
     {
@@ -51,22 +36,30 @@ public class SkillAreaEffect : SkillEffect
             return result;
         }
 
+        if (context.SkillData == null)
+        {
+            LogError("SkillData não encontrado no contexto!");
+            result.Success = false;
+            result.ErrorMessage = "SkillData é null";
+            return result;
+        }
+
         // Determina centro da área
         Vector3 areaCenter = DetermineAreaCenter(context);
 
         // Encontra alvos na área
-        List<Character> targets = FindTargetsInArea(areaCenter, context);
+        List<CharacterManager> targets = FindTargetsInArea(areaCenter, context);
 
         if (targets.Count == 0)
         {
             Log("Nenhum alvo encontrado na área");
             result.Success = true; // Não é erro, só não acertou ninguém
-            result.AffectedTargets = new Character[0];
+            result.AffectedTargets = new CharacterManager[0];
             return result;
         }
 
         // Aplica efeitos em cada alvo
-        List<Character> affectedTargets = new List<Character>();
+        List<CharacterManager> affectedTargets = new List<CharacterManager>();
         float totalDamage = 0f;
         float totalHealing = 0f;
 
@@ -111,17 +104,18 @@ public class SkillAreaEffect : SkillEffect
         return result;
     }
 
-    // Determina centro da área baseado em targeting
+    // Determina centro da área baseado em targeting (lê forwardOffset do SkillData)
     Vector3 DetermineAreaCenter(SkillContext context)
     {
         Vector3 center = context.OriginPosition;
+        float forwardOffset = context.SkillData.forwardOffset;
 
         // Se tem posição alvo, usa ela
         if (context.TargetPosition != Vector3.zero)
         {
             center = context.TargetPosition;
         }
-        // Se tem alvo character, usa posição dele
+        // Se tem alvo CharacterManager, usa posição dele
         else if (context.Target != null)
         {
             center = context.Target.transform.position;
@@ -139,10 +133,17 @@ public class SkillAreaEffect : SkillEffect
         return center;
     }
 
-    // Encontra todos os personagens na área
-    List<Character> FindTargetsInArea(Vector3 center, SkillContext context)
+    // Encontra todos os personagens na área (lê valores do SkillData)
+    List<CharacterManager> FindTargetsInArea(Vector3 center, SkillContext context)
     {
-        List<Character> foundTargets = new List<Character>();
+        List<CharacterManager> foundTargets = new List<CharacterManager>();
+        SkillData skillData = context.SkillData;
+
+        // Lê valores DO SKILLDATA
+        float radius = skillData.areaRadius;
+        SkillAreaShape shape = skillData.areaShape;
+        float coneAngle = skillData.coneAngle;
+        int maxTargets = skillData.maxTargets;
 
         // Overlap baseado na forma
         Collider[] colliders = null;
@@ -174,24 +175,24 @@ public class SkillAreaEffect : SkillEffect
         // Processa cada collider
         foreach (var col in colliders)
         {
-            var character = col.GetComponent<Character>();
-            if (character == null) continue;
+            var CharacterManager = col.GetComponent<CharacterManager>();
+            if (CharacterManager == null) continue;
 
             // Filtra por team
-            if (!IsValidTarget(character, context))
+            if (!IsValidTarget(CharacterManager, context))
                 continue;
 
             // Filtra por ângulo (se cone)
             if (shape == SkillAreaShape.Cone)
             {
-                Vector3 dirToTarget = (character.transform.position - context.Caster.transform.position).normalized;
+                Vector3 dirToTarget = (CharacterManager.transform.position - context.Caster.transform.position).normalized;
                 float angle = Vector3.Angle(context.Direction, dirToTarget);
                 
                 if (angle > coneAngle * 0.5f)
                     continue;
             }
 
-            foundTargets.Add(character);
+            foundTargets.Add(CharacterManager);
 
             // Limita número de alvos
             if (maxTargets > 0 && foundTargets.Count >= maxTargets)
@@ -201,13 +202,15 @@ public class SkillAreaEffect : SkillEffect
         return foundTargets;
     }
 
-    // Verifica se alvo é válido baseado no filtro
-    bool IsValidTarget(Character target, SkillContext context)
+    // Verifica se alvo é válido baseado no filtro (lê do SkillData)
+    bool IsValidTarget(CharacterManager target, SkillContext context)
     {
+        TargetFilter targetFilter = context.SkillData.targetFilter;
+
         switch (targetFilter)
         {
             case TargetFilter.Enemies:
-                // Compara character type (Player vs NPC)
+                // Compara CharacterManager type (Player vs NPC)
                 return target.characterType != context.Caster.characterType;
 
             case TargetFilter.Allies:
@@ -239,21 +242,6 @@ public class SkillAreaEffect : SkillEffect
         }
     }
 
-    // Gizmos para visualização no editor
-    void OnDrawGizmosSelected()
-    {
-        // Desenha área no editor
-        Gizmos.color = Color.yellow;
-        
-        switch (shape)
-        {
-            case SkillAreaShape.Circle:
-                Gizmos.DrawWireSphere(Vector3.zero, radius);
-                break;
-
-            case SkillAreaShape.Box:
-                Gizmos.DrawWireCube(Vector3.zero, new Vector3(radius * 2f, radius, radius * 2f));
-                break;
-        }
-    }
+    // Gizmos removidos - valores não são mais fixos neste ScriptableObject
+    // Para visualizar área, use o SkillData no Inspector
 }

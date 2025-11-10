@@ -1,49 +1,86 @@
 using UnityEngine;
 
-[RequireComponent(typeof(CharacterController))]
+// Componente de movimentação do Player - gerenciado pelo PlayerManager
+// NÃO usar independentemente - requer inicialização via Initialize()
 public class PlayerMotor : MonoBehaviour
 {
     [Header("Components")]
     private CharacterController controller;
+    private CharacterManager CharacterManager;
 
     [Header("Movement")]
     private Vector3 playerVelocity;
     private float gravity = -9.81f;
 
-    [Header("Pathfinding/Destination Settings")]
-    [SerializeField] private float destinationReachedThreshold = 0.5f; // Distância para considerar que chegou
-    private Vector3? targetDestination = null; // Posição de destino alvo
-    private Transform targetTransform = null; // Transform de alvo móvel (inimigo)
-
-    [Header("Ground Check")]
-    [SerializeField] private Transform groundCheck;
-    [SerializeField] private float groundDistance = 0.4f;
-    [SerializeField] private LayerMask groundMask;
+    // Configurações injetadas pelo PlayerManager
+    private float rotationSpeed = 720f;
+    private bool useSmoothRotation = true;
+    private float slowThreshold = 0.7f;
+    private float buffedThreshold = 1.3f;
+    private float baseSpeed;
+    
+    // Pathfinding
+    private float destinationReachedThreshold = 0.5f;
+    private Vector3? targetDestination = null;
+    private Transform targetTransform = null;
+    
+    // Ground Check
+    private Transform groundCheck;
+    private float groundDistance = 0.4f;
+    private LayerMask groundMask;
 
     public bool IsMoving { get; private set; }
     public bool IsGrounded { get; private set; }
     public float CurrentSpeedNormalized { get; private set; }
+    public float SpeedMultiplier { get; private set; }
     
-    // Propriedades para pathfinding
     public bool HasDestination => targetDestination.HasValue || targetTransform != null;
     public Vector3? CurrentDestination => targetTransform != null ? targetTransform.position : targetDestination;
 
-    private void Awake()
+    // Inicializado pelo PlayerManager - componentes são injetados
+    public void Initialize(CharacterController charController, CharacterManager charComponent)
     {
-        controller = GetComponent<CharacterController>();
+        controller = charController;
+        CharacterManager = charComponent;
+        
+        // Cacheia velocidade base
+        if (CharacterManager != null)
+        {
+            baseSpeed = CharacterManager.Data.speed;
+        }
+    }
+    
+    // Configurações injetadas pelo PlayerManager
+    public void ConfigureSettings(float rotSpeed, bool smoothRot, float slowThr, float buffedThr,
+                                   float destThreshold, Transform groundChk, float groundDist, LayerMask groundMsk)
+    {
+        rotationSpeed = rotSpeed;
+        useSmoothRotation = smoothRot;
+        slowThreshold = slowThr;
+        buffedThreshold = buffedThr;
+        destinationReachedThreshold = destThreshold;
+        groundCheck = groundChk;
+        groundDistance = groundDist;
+        groundMask = groundMsk;
     }
 
     // Movimento direto com input (WASD)
     public void Move(Vector3 direction, float speed)
     {
-        controller.Move(direction.normalized * Time.deltaTime * speed);
+        // Usa TotalSpeed do CharacterManager se disponível (considera buffs/debuffs)
+        float effectiveSpeed = CharacterManager != null ? CharacterManager.Data.TotalSpeed : speed;
+        
+        controller.Move(direction.normalized * Time.deltaTime * effectiveSpeed);
 
         IsMoving = direction.magnitude > 0.1f;
+        
+        // Calcula multiplicador de velocidade
+        CalculateSpeedMultiplier(effectiveSpeed);
         
         if (IsMoving)
         {
             float currentSpeed = controller.velocity.magnitude;
-            CurrentSpeedNormalized = Mathf.Clamp01(currentSpeed / speed);
+            CurrentSpeedNormalized = Mathf.Clamp01(currentSpeed / effectiveSpeed);
         }
         else
         {
@@ -83,6 +120,42 @@ public class PlayerMotor : MonoBehaviour
         {
             Move(direction, speed);
         }
+    }
+    
+    /// <summary>
+    /// Calcula o multiplicador de velocidade baseado em buffs/debuffs
+    /// </summary>
+    private void CalculateSpeedMultiplier(float currentSpeed)
+    {
+        if (CharacterManager == null || baseSpeed <= 0f)
+        {
+            SpeedMultiplier = 1f;
+            return;
+        }
+
+        SpeedMultiplier = currentSpeed / baseSpeed;
+    }
+    
+    /// <summary>
+    /// Recalcula a velocidade base. Use quando equipamentos ou nível mudarem.
+    /// </summary>
+    public void RecalculateBaseSpeed()
+    {
+        if (CharacterManager == null) return;
+        baseSpeed = CharacterManager.Data.speed;
+    }
+    
+    /// <summary>
+    /// Retorna o tipo de velocidade atual (Slow/Normal/Buffed)
+    /// </summary>
+    public string GetSpeedType()
+    {
+        if (SpeedMultiplier < slowThreshold)
+            return "SLOW";
+        else if (SpeedMultiplier > buffedThreshold)
+            return "BUFFED";
+        else
+            return "NORMAL";
     }
 
     // Verifica se chegou ao destino
@@ -126,7 +199,21 @@ public class PlayerMotor : MonoBehaviour
     {
         if (direction.magnitude > 0.1f)
         {
-            transform.forward = direction;
+            if (useSmoothRotation)
+            {
+                // Rotação suave usando RotateTowards
+                Quaternion targetRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation, 
+                    targetRotation, 
+                    rotationSpeed * Time.deltaTime
+                );
+            }
+            else
+            {
+                // Rotação instantânea (comportamento antigo)
+                transform.forward = direction;
+            }
         }
     }
 

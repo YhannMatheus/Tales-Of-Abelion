@@ -1,41 +1,14 @@
 using UnityEngine;
 
 // Efeito de dano direto
+// TODOS OS VALORES são configurados no SkillData, não aqui!
 [CreateAssetMenu(fileName = "New Damage Effect", menuName = "Skills/Effects/Damage Effect")]
 public class DamageEffect : SkillEffect
 {
-    [Header("Configuração de Dano")]
-    [Tooltip("Dano base")]
-    public float baseDamage = 50f;
-    
-    [Tooltip("Tipo de dano")]
-    public SkillDamageType damageType = SkillDamageType.Physical;
-    
-    [Tooltip("Como o dano escala com stats")]
-    public DamageScaling scaling = DamageScaling.Physical;
-    
-    [Header("Scaling Ratios")]
-    [Tooltip("Multiplicador de Physical Damage do caster")]
-    [Range(0f, 5f)]
-    public float physicalRatio = 1f;
-    
-    [Tooltip("Multiplicador de Magical Damage do caster")]
-    [Range(0f, 5f)]
-    public float magicalRatio = 0f;
-    
-    [Tooltip("Multiplicador de HP máximo do caster")]
-    [Range(0f, 1f)]
-    public float healthRatio = 0f;
-    
-    [Header("Opções Avançadas")]
-    [Tooltip("Ignora defesa do alvo")]
-    public bool ignoresArmor = false;
-    
-    [Tooltip("Pode dar critical hit")]
-    public bool canCrit = true;
-    
-    [Tooltip("Multiplicador de crítico (se canCrit = true)")]
-    public float critMultiplier = 2f;
+    [Header("Info")]
+    [Tooltip("Este efeito aplica dano. Configure valores no SkillData:")]
+    [TextArea(3, 5)]
+    public string info = "Configure no SkillData:\n- baseDamage\n- damageType\n- damageScaling\n- physicalDamageRatio\n- magicalDamageRatio\n- canCrit, critMultiplier";
 
     public override SkillEffectResult Execute(SkillContext context)
     {
@@ -48,6 +21,14 @@ public class DamageEffect : SkillEffect
             return result;
         }
 
+        if (context.SkillData == null)
+        {
+            LogError("SkillData não encontrado no contexto!");
+            result.Success = false;
+            result.ErrorMessage = "SkillData é null";
+            return result;
+        }
+
         if (context.Target == null)
         {
             LogWarning("Alvo é null, efeito não pode ser aplicado");
@@ -56,7 +37,7 @@ public class DamageEffect : SkillEffect
             return result;
         }
 
-        // Calcula dano final
+        // Calcula dano final usando valores do SkillData
         float finalDamage = CalculateDamage(context);
 
         // Aplica dano no alvo
@@ -65,18 +46,25 @@ public class DamageEffect : SkillEffect
         // Preenche resultado
         result.Success = true;
         result.DamageDealt = finalDamage;
-        result.AffectedTargets = new Character[] { context.Target };
+        result.AffectedTargets = new CharacterManager[] { context.Target };
 
         Log($"Causou {finalDamage:F1} de dano em {context.Target.Data.characterName}");
 
         return result;
     }
 
-    // Calcula dano baseado em scaling
+    // Calcula dano baseado em valores do SkillData
     float CalculateDamage(SkillContext context)
     {
-        float damage = baseDamage;
+        SkillData skillData = context.SkillData;
         var casterData = context.Caster.Data;
+
+        // Lê valores DO SKILLDATA
+        float damage = skillData.baseDamage;
+        DamageScaling scaling = skillData.damageScaling;
+        float physicalRatio = skillData.physicalDamageRatio;
+        float magicalRatio = skillData.magicalDamageRatio;
+        float healthRatio = skillData.healthRatio;
 
         // Aplica scaling
         switch (scaling)
@@ -118,11 +106,12 @@ public class DamageEffect : SkillEffect
             damage *= (1f + levelBonus);
         }
 
-        // TODO: Aplicar critical hit (quando sistema de stats tiver crit chance)
-        // if (canCrit && Random.value < casterData.critChance)
-        // {
-        //     damage *= critMultiplier;
-        // }
+        // Aplica critical hit se configurado
+        if (skillData.canCrit && Random.value < casterData.TotalCriticalChance)
+        {
+            damage *= skillData.critMultiplier;
+            Log("CRITICAL HIT!");
+        }
 
         return damage;
     }

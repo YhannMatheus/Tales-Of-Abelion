@@ -15,33 +15,18 @@ public class PlayerMovingState : PlayerStateBase
 
     public override void UpdateState()
     {
-        // ========== BOTÃO DIREITO DO MOUSE (PRIORIDADE) ==========
+        // ========== BOTÃO DIREITO DO MOUSE (NOVO DESTINO/ALVO) ==========
         if (player.Mouse.RightMouseButtonDown)
         {
             HandleRightClick();
             return;
         }
 
-        // ========== MOVIMENTO WASD ==========
-        Vector3 moveDirection = new Vector3(player.Input.horizontalInput, 0, player.Input.verticalInput);
-
-        if (moveDirection.magnitude <= player.MovementThreshold)
+        // ⚠️ MOVIMENTO WASD REMOVIDO - Agora usa apenas clique do mouse
+        // Se chegou aqui sem destino, volta para Idle
+        if (!player.Motor.HasDestination)
         {
             SwitchState(new PlayerIdleState(stateMachine, player));
-            return;
-        }
-
-        player.Motor.Move(moveDirection, player.Character.Data.TotalSpeed);
-        player.Motor.Rotate(moveDirection);
-
-        // IMPORTANTE: MovingState é o ÚNICO responsável por controlar Speed
-        // Atualiza blend tree (0.0=Idle → 0.3=Walk → 0.7=Jog → 1.0=Run)
-        player.Animator?.UpdateMovementSpeed(player.Motor.CurrentSpeedNormalized, player.Motor.IsGrounded);
-
-        // ========== ATAQUE BÁSICO (LEGADO) ==========
-        if (player.Input.attackInput)
-        {
-            SwitchState(new PlayerAttackingState(stateMachine, player));
             return;
         }
 
@@ -97,7 +82,7 @@ public class PlayerMovingState : PlayerStateBase
     private void HandleRightClick()
     {
         // Verifica se clicou em inimigo
-        if (player.Mouse.IsMouseOverEnemy(out Character enemyCharacter))
+        if (player.Mouse.IsMouseOverEnemy(out CharacterManager enemyCharacter))
         {
             if (enemyCharacter.Data.IsAlive)
             {
@@ -118,14 +103,17 @@ public class PlayerMovingState : PlayerStateBase
 
     private int CheckAbilityInputs()
     {
-        if (player.Input.ability1Input) return 1;
-        if (player.Input.ability2Input) return 2;
-        if (player.Input.ability3Input) return 3;
-        if (player.Input.ability4Input) return 4;
-        if (player.Input.ability5Input) return 5;
-        if (player.Input.ability6Input) return 6;
-        if (player.Input.ability7Input) return 7;
-        if (player.Input.ability8Input) return 8;
+        // Slots 1-6: Q, W, E, A, S, D (Habilidades principais)
+        if (player.Input.ability1Input) return 1; // Q
+        if (player.Input.ability2Input) return 2; // W
+        if (player.Input.ability3Input) return 3; // E
+        if (player.Input.ability4Input) return 4; // A
+        if (player.Input.ability5Input) return 5; // S
+        if (player.Input.ability6Input) return 6; // D
+        
+        // Slots 7-8: Z, X (Itens/Consumíveis)
+        if (player.Input.ability7Input) return 7; // Z
+        if (player.Input.ability8Input) return 8; // X
         
         return -1; // Nenhuma habilidade pressionada
     }
@@ -144,7 +132,7 @@ public class PlayerMovingState : PlayerStateBase
         var context = new SkillContext
         {
             Caster = player.Character,
-            Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+            Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
             OriginPosition = player.transform.position,
             TargetPosition = player.Mouse.GetMousePosition()
         };

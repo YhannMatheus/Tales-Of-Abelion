@@ -1,7 +1,4 @@
 using UnityEngine;
-
-// Versão alternativa usando Raycast (mais confiável para CharacterController)
-// Para usar: substitua o componente GroundCheck por este no GameObject filho
 public class GroundCheckRaycast : MonoBehaviour
 {
     [Header("Raycast Settings")]

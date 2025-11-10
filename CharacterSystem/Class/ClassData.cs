@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor.Animations;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "NewClassData", menuName = "Character System/ClassData")]
+[CreateAssetMenu(fileName = "NewClassData", menuName = "CharacterManager System/ClassData")]
 public class ClassData : ScriptableObject
 {
     [Header("Basic Information")]

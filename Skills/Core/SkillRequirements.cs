@@ -41,15 +41,15 @@ public class SkillRequirements
     public string bossName = "";
 
     // Verifica se todos os requisitos são atendidos
-    public bool IsMet(Character character)
+    public bool IsMet(CharacterManager CharacterManager)
     {
-        if (character == null)
+        if (CharacterManager == null)
         {
-            Debug.LogWarning("[SkillRequirements] Character é null!");
+            Debug.LogWarning("[SkillRequirements] CharacterManager é null!");
             return false;
         }
 
-        var data = character.Data;
+        var data = CharacterManager.Data;
 
         // Verifica nível
         if (data.level < minCharacterLevel)
@@ -90,11 +90,11 @@ public class SkillRequirements
     }
 
     // Retorna mensagem descrevendo qual requisito não foi atendido
-    public string GetFailureReason(Character character)
+    public string GetFailureReason(CharacterManager CharacterManager)
     {
-        if (character == null) return "Personagem inválido";
+        if (CharacterManager == null) return "Personagem inválido";
 
-        var data = character.Data;
+        var data = CharacterManager.Data;
 
         if (data.level < minCharacterLevel)
             return $"Necessário nível {minCharacterLevel} (atual: {data.level})";
@@ -140,11 +140,11 @@ public class ResourceCost
     public int itemQuantity = 0;
 
     // Verifica se personagem tem recursos suficientes
-    public bool CanAfford(Character character)
+    public bool CanAfford(CharacterManager CharacterManager)
     {
-        if (character == null) return false;
+        if (CharacterManager == null) return false;
 
-        var data = character.Data;
+        var data = CharacterManager.Data;
 
         // Verifica energia
         if (energy > 0f && data.currentEnergy < energy)
@@ -167,32 +167,32 @@ public class ResourceCost
     }
 
     // Consome os recursos
-    public void Consume(Character character)
+    public void Consume(CharacterManager CharacterManager)
     {
-        if (character == null) return;
+        if (CharacterManager == null) return;
 
         // Consome energia
         if (energy > 0f)
         {
             int energyCost = Mathf.CeilToInt(energy);
-            character.TrySpendEnergy(energyCost);
+            CharacterManager.TrySpendEnergy(energyCost);
         }
 
         // Consome HP
         if (health > 0f)
         {
-            character.TakeDamage(health);
+            CharacterManager.TakeDamage(health);
         }
 
         // TODO: Consumir items quando inventário existir
     }
 
     // Retorna mensagem descrevendo qual recurso está faltando
-    public string GetFailureReason(Character character)
+    public string GetFailureReason(CharacterManager CharacterManager)
     {
-        if (character == null) return "Personagem inválido";
+        if (CharacterManager == null) return "Personagem inválido";
 
-        var data = character.Data;
+        var data = CharacterManager.Data;
 
         if (energy > 0f && data.currentEnergy < energy)
             return $"Energia insuficiente ({data.currentEnergy:F0}/{energy:F0})";

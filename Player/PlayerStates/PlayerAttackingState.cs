@@ -38,7 +38,7 @@ public class PlayerAttackingState : PlayerStateBase
             var context = new SkillContext
             {
                 Caster = player.Character,
-                Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+                Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
                 OriginPosition = player.transform.position,
                 TargetPosition = player.Mouse.GetMousePosition()
             };
@@ -66,7 +66,7 @@ public class PlayerAttackingState : PlayerStateBase
             var context = new SkillContext
             {
                 Caster = player.Character,
-                Target = player.Mouse.GetClickedObject()?.GetComponent<Character>(),
+                Target = player.Mouse.GetClickedObject()?.GetComponent<CharacterManager>(),
                 OriginPosition = player.transform.position,
                 TargetPosition = player.Mouse.GetMousePosition()
             };

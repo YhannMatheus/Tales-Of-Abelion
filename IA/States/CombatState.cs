@@ -56,7 +56,7 @@ public class CombatState : State
     {
         if (ia.currentTarget == null) return false;
 
-        Character targetCharacter = ia.currentTarget.GetComponent<Character>();
+        CharacterManager targetCharacter = ia.currentTarget.GetComponent<CharacterManager>();
         if (targetCharacter != null)
         {
             return targetCharacter.Data.IsAlive;
@@ -75,7 +75,7 @@ public class CombatState : State
     {
         if (ia.skillManager == null) return;
 
-        Character targetChar = ia.currentTarget != null ? ia.currentTarget.GetComponent<Character>() : null;
+        CharacterManager targetChar = ia.currentTarget != null ? ia.currentTarget.GetComponent<CharacterManager>() : null;
         if (targetChar == null) return;
 
         SkillSlot highestDamageSkill = ia.skillManager.GetHighestDamageSkill(distanceToTarget, includeBasicAttack: true);
@@ -123,7 +123,7 @@ public class CombatState : State
 
     private void HandleNoTarget(IAManager ia)
     {
-        if (ia.iaType == IaType.Enemy || ia.iaType == IaType.Neutral)
+        if (ia.CharacterManager.characterType == CharacterType.Enemy || ia.CharacterManager.characterType == CharacterType.Neutral)
         {
             if (ia.CanUseState(IAState.Patrol) && ia.patrolPoints != null && ia.patrolPoints.Length > 0)
             {
