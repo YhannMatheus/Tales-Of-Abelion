@@ -1,7 +1,5 @@
 using UnityEngine;
 
-// Componente de movimentação do Player - gerenciado pelo PlayerManager
-// NÃO usar independentemente - requer inicialização via Initialize()
 public class PlayerMotor : MonoBehaviour
 {
     [Header("Components")]
@@ -26,6 +24,7 @@ public class PlayerMotor : MonoBehaviour
     
     // Ground Check
     private Transform groundCheck;
+    private GroundCheckRaycast groundCheckRaycast; // ✅ NOVO: Componente de Raycast
     private float groundDistance = 0.4f;
     private LayerMask groundMask;
 
@@ -62,6 +61,13 @@ public class PlayerMotor : MonoBehaviour
         groundCheck = groundChk;
         groundDistance = groundDist;
         groundMask = groundMsk;
+        
+        // ✅ Tenta obter o componente GroundCheckRaycast (se existir)
+        groundCheckRaycast = GetComponent<GroundCheckRaycast>();
+        if (groundCheckRaycast != null)
+        {
+            Debug.Log("[PlayerMotor] ✅ GroundCheckRaycast component encontrado e configurado!");
+        }
     }
 
     // Movimento direto com input (WASD)
@@ -227,17 +233,94 @@ public class PlayerMotor : MonoBehaviour
 
     public void ApplyGravity()
     {
-        // Ground check
-        IsGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+        bool wasGrounded = IsGrounded;
+        
+        // ✅ PRIORIDADE 1: Usa GroundCheckRaycast se disponível (MAIS PRECISO)
+        if (groundCheckRaycast != null)
+        {
+            IsGrounded = groundCheckRaycast.IsGrounded;
+            
+            Debug.Log($"[PlayerMotor] 🎯 RAYCAST CHECK | IsGrounded = {IsGrounded} | WasGrounded = {wasGrounded} | Y Pos = {transform.position.y:F2}");
+            
+            if (wasGrounded != IsGrounded)
+            {
+                Debug.Log($"[PlayerMotor] 🚨 MUDANÇA DETECTADA (Raycast) | {wasGrounded} → {IsGrounded}");
+            }
+        }
+        // PRIORIDADE 2: Usa Transform externo com CheckSphere
+        else if (groundCheck != null)
+        {
+            IsGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+            
+            if (wasGrounded != IsGrounded)
+            {
+                Debug.Log($"[PlayerMotor] 🌍 GROUND CHECK (External Sphere) | IsGrounded = {IsGrounded} | CheckPos = {groundCheck.position} | Distance = {groundDistance}");
+            }
+        }
+        // PRIORIDADE 3: Fallback - usa SphereCast privado
+        else
+        {
+            // Fallback: usa SphereCast do próprio CharacterController
+            IsGrounded = CheckGroundPrivate();
+            
+            if (wasGrounded != IsGrounded)
+            {
+                Debug.Log($"[PlayerMotor] 🔍 GROUND CHECK (Private Sphere) | IsGrounded = {IsGrounded}");
+            }
+        }
 
         if (IsGrounded && playerVelocity.y < 0)
         {
+            // ✅ Quando no chão, aplica pequena força para baixo (mantém contato)
+            // -2f é o padrão Unity para CharacterController grounded
             playerVelocity.y = -2f;
+            
+            if (wasGrounded != IsGrounded)
+            {
+                Debug.Log($"[PlayerMotor] ✅ ATERRISSOU | Y Velocity agora = -2f (grounded) | Y Pos = {transform.position.y:F2}");
+            }
         }
-
-        // Aplica gravidade
-        playerVelocity.y += gravity * Time.deltaTime;
+        else
+        {
+            // ⬇️ APENAS aplica gravidade quando NO AR
+            playerVelocity.y += gravity * Time.deltaTime;
+        }
+        
+        // ✅ SEMPRE move (mesmo que seja Vector3.zero) para manter física ativa
+        // Isso garante que CharacterController atualize colisões e IsGrounded funcione
         controller.Move(playerVelocity * Time.deltaTime);
+        
+        // Log detalhado de gravidade (REMOVIDO - muito spam)
+        // if (Mathf.Abs(playerVelocity.y) > 0.5f)
+        // {
+        //     Debug.Log($"[PlayerMotor] ⬇️ GRAVITY | Y Velocity = {playerVelocity.y:F2} | IsGrounded = {IsGrounded} | Y Pos = {transform.position.y:F2}");
+        // }
+    }
+    
+    /// <summary>
+    /// Ground check privado quando groundCheck Transform não está atribuído.
+    /// Usa SphereCast a partir do CharacterController para detectar chão.
+    /// </summary>
+    private bool CheckGroundPrivate()
+    {
+        if (controller == null) return false;
+        
+        // Origem: ligeiramente acima do centro do controller
+        Vector3 origin = transform.position + Vector3.up * (controller.radius + 0.05f);
+        float rayDistance = controller.height / 2f + groundDistance;
+        
+        // SphereCast para baixo
+        bool hitGround = Physics.SphereCast(origin, controller.radius * 0.9f, Vector3.down, 
+                                           out RaycastHit hit, rayDistance, groundMask);
+        
+        Debug.Log($"[PlayerMotor] 🔍 CHECK GROUND PRIVATE | Origin = {origin} | RayDist = {rayDistance:F2} | HitGround = {hitGround} | LayerMask = {groundMask.value}");
+        
+        if (hitGround)
+        {
+            Debug.Log($"[PlayerMotor] ✅ PRIVATE CHECK HIT | Distance = {hit.distance:F2} | Point = {hit.point} | Normal = {hit.normal}");
+        }
+        
+        return hitGround;
     }
 
     public void Stop()

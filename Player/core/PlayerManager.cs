@@ -50,7 +50,7 @@ public class PlayerManager : MonoBehaviour
 
     [Header("DEBUG")]
     [SerializeField] private bool showDebugGUI;
-    [SerializeField] private bool showStateLogs;
+    [SerializeField] private bool showStateLogs = false;
 
     [Header("Components")]
     private CharacterAnimatorController animator;
@@ -179,7 +179,7 @@ public class PlayerManager : MonoBehaviour
         }
     }
 
-    // ========== Métodos Públicos (para controle externo de estados) ==========
+    //TODO: ========== Métodos Públicos (para controle externo de estados) ==========
 
     public void ApplyStun(float duration)
     {
@@ -207,24 +207,17 @@ public class PlayerManager : MonoBehaviour
         // ========== MODO STATE MACHINE ==========
         if (useStateMachine)
         {
-            // Verifica se está vivo antes de atualizar state machine
+            motor.ApplyGravity();
+            
             if (character.Data.IsAlive)
             {
-                // Verifica se está no ar e não está morto ou stunado
                 CheckGroundedState();
 
                 stateMachine?.Update();
             }
 
-            // Gravidade é aplicada sempre (mesmo quando morto)
-            motor.ApplyGravity();
-
             return; // Não executa código legado
         }
-
-        // ========== MODO LEGADO (DESATIVADO - use State Machine) ==========
-        // ⚠️ Movimento WASD removido - agora usa apenas clique do mouse via State Machine
-        Debug.LogWarning("[PlayerManager] State Machine desativada! Ative 'useStateMachine' no Inspector.");
 
         motor.ApplyGravity();
     }

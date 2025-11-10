@@ -1,19 +1,5 @@
 using UnityEngine;
 
-// ========================================
-// PlayerIdleState - Estado Idle do Player
-// ========================================
-// CONTROLES:
-// - Botão Direito do Mouse: Movimento/Ataque (estilo MOBA/ARPG)
-//   • Clique em chão = Move para posição
-//   • Clique em inimigo = Persegue e ataca
-//   • Clique em objeto interativo = Move até ele
-// - Q, W, E, A, S, D: Habilidades (6 slots principais)
-// - Z, X: Slots extras (Itens/Consumíveis)
-// - Botão Esquerdo (E): Interação com objetos próximos
-// ⚠️ WASD removido - usa apenas clique do mouse para movimento
-// ========================================
-
 public class PlayerIdleState : PlayerStateBase
 {
     public PlayerIdleState(PlayerStateMachine stateMachine, PlayerManager player) 
@@ -28,6 +14,7 @@ public class PlayerIdleState : PlayerStateBase
         // Define estado de animação como Idle PURO (sem controle de Speed)
         // Idle = apenas parado, MovingState controla todas as animações de movimento
         player.Animator?.SetIdleState();
+
     }
 
     public override void UpdateState()

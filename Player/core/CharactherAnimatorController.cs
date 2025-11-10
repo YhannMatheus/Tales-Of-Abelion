@@ -48,6 +48,7 @@ public class CharacterAnimatorController : MonoBehaviour
     private bool hasAbilityActiveParameter = true;
     private bool hasIsMovingParameter = true;
     private bool hasIsFallingParameter = true;
+    private bool hasIsGroundedParameter = true;
     
     // Cache da velocidade base do personagem (para calcular multiplicador)
     private float baseSpeed = 0f;
@@ -79,6 +80,7 @@ public class CharacterAnimatorController : MonoBehaviour
         hasAbilityActiveParameter = paramNames.Any(n => n == "AbilityActive");
         hasIsMovingParameter = paramNames.Any(n => n == "isMoving");
         hasIsFallingParameter = paramNames.Any(n => n == "isFalling");
+        hasIsGroundedParameter = paramNames.Any(n => n == "IsGrounded");
         
         if (!hasSpeedParameter)
         {
@@ -99,6 +101,10 @@ public class CharacterAnimatorController : MonoBehaviour
         if (!hasIsFallingParameter && debugAnimator)
         {
             Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'isFalling' (opcional)");
+        }
+        if (!hasIsGroundedParameter && debugAnimator)
+        {
+            Debug.Log($"[CharacterAnimatorController] Animator on {gameObject.name} does not contain parameter 'IsGrounded' (opcional)");
         }
         
         // Cacheia velocidade base
@@ -166,12 +172,13 @@ public class CharacterAnimatorController : MonoBehaviour
     {
         if (animator == null) return;
         
+        // IMPORTANTE: Não ignora se grounded = false (estado de queda precisa atualizar IsGrounded)
         // Verifica se o parâmetro isMoving existe antes de usá-lo
-        if (hasIsMovingParameter && !animator.GetBool(IsMovingHash))
+        if (grounded && hasIsMovingParameter && !animator.GetBool(IsMovingHash))
         {
             if (debugAnimator)
             {
-                Debug.Log("[CharacterAnimatorController] UpdateMovementSpeed ignorado - não está em MovingState");
+                Debug.Log("[CharacterAnimatorController] UpdateMovementSpeed ignorado - não está em MovingState e está no chão");
             }
             return;
         }
@@ -179,7 +186,22 @@ public class CharacterAnimatorController : MonoBehaviour
         if (isGrounded != grounded)
         {
             isGrounded = grounded;
-            animator.SetBool(IsGroundedHash, isGrounded);
+            
+            // Só tenta atualizar se o parâmetro existir no Animator
+            if (hasIsGroundedParameter)
+            {
+                animator.SetBool(IsGroundedHash, isGrounded);
+                Debug.Log($"[CharacterAnimatorController] 🌍 IsGrounded MUDOU | IsGrounded = {isGrounded} (Animator parameter updated)");
+            }
+            else
+            {
+                Debug.LogWarning($"[CharacterAnimatorController] ⚠️ IsGrounded mudou para {isGrounded} mas parâmetro NÃO EXISTE no Animator");
+            }
+            
+            if (debugAnimator)
+            {
+                Debug.Log($"[CharacterAnimatorController] IsGrounded atualizado para: {isGrounded}");
+            }
         }
 
         float newSpeed;
@@ -189,7 +211,8 @@ public class CharacterAnimatorController : MonoBehaviour
         }
         else
         {
-            newSpeed = Mathf.Lerp(currentSpeed, 0f, movementSmoothTime * Time.deltaTime);
+            // No ar: mantém velocidade horizontal mas reduz gradualmente
+            newSpeed = Mathf.Lerp(currentSpeed, 0f, movementSmoothTime * Time.deltaTime * 0.5f);
         }
 
         currentSpeed = newSpeed;
@@ -424,6 +447,8 @@ public class CharacterAnimatorController : MonoBehaviour
     {
         if (animator == null) return;
         
+        Debug.Log("[CharacterAnimatorController] 🔵 SET IDLE STATE CHAMADO");
+        
         animator.SetBool(IsIdleHash, true);
         animator.SetBool(IsMovingHash, false);
         animator.SetBool(IsAttackingHash, false);
@@ -432,7 +457,13 @@ public class CharacterAnimatorController : MonoBehaviour
         // Limpa flag de queda ao retornar para idle
         if (hasIsFallingParameter)
         {
+            bool wasIsFalling = animator.GetBool(IsFallingHash);
             animator.SetBool(IsFallingHash, false);
+            Debug.Log($"[CharacterAnimatorController] 🟢 SET IDLE STATE | isFalling: {wasIsFalling} → FALSE (aplicado no Animator)");
+        }
+        else
+        {
+            Debug.LogWarning("[CharacterAnimatorController] ⚠️ SET IDLE STATE | Parâmetro 'isFalling' NÃO EXISTE no Animator!");
         }
         
         // NÃO zera Speed aqui - Idle é estado puro sem controle de velocidade
@@ -528,6 +559,11 @@ public class CharacterAnimatorController : MonoBehaviour
         if (hasIsFallingParameter)
         {
             animator.SetBool(IsFallingHash, true);
+            Debug.Log("[CharacterAnimatorController] 🔴 SET FALLING STATE | isFalling = TRUE");
+        }
+        else
+        {
+            Debug.LogWarning("[CharacterAnimatorController] ⚠️ SET FALLING STATE | Parâmetro 'isFalling' NÃO EXISTE no Animator!");
         }
         
         // Zera velocidade horizontal
@@ -569,7 +605,11 @@ public class CharacterAnimatorController : MonoBehaviour
         {
             animator.SetBool(AbilityActiveHash, false);
         }
-        animator.SetBool(IsGroundedHash, true);
+        
+        if (hasIsGroundedParameter)
+        {
+            animator.SetBool(IsGroundedHash, true);
+        }
         
         if (hasIsFallingParameter)
         {
