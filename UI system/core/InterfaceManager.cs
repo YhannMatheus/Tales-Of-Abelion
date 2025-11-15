@@ -8,7 +8,7 @@ using TMPro;
 public class InterfaceManager : MonoBehaviour
 {
     [Header(" Estatisticas do Personagem ")]
-    public PlayerManager player;
+    //public PlayerManager player;
     public float smoothSpeed = 5f;
 
     [Header(" Barra de Vida ")]
@@ -37,7 +37,7 @@ public class InterfaceManager : MonoBehaviour
     public GameObject MapContainer;
     public GameObject SkillsContainer;
 
-    private void Initializate()
+    /*private void Initializate()
     {
         // inicializar controladores
         //! vida
@@ -144,5 +144,5 @@ public class InterfaceManager : MonoBehaviour
             }
         }
     }
-
+*/
 }

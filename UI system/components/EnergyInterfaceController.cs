@@ -30,11 +30,11 @@ public class EnergyInterfaceController: MonoBehaviour
             CharacterManager.OnEnergyChanged += UpdateEnergyDisplay;
             CharacterManager.OnDeath += HandleDeath;
             CharacterManager.OnRevive += HandleRevive;
-            
+            // Inicializa usando o EnergyController (fonte de verdade sincronizada)
             var initialEnergyArgs = new EnergyChangedEventArgs(
-                CharacterManager.Data.currentEnergy,
-                CharacterManager.Data.TotalMaxEnergy,
-                CharacterManager.Data.currentEnergy 
+                CharacterManager.Energy.CurrentEnergyInt,
+                CharacterManager.Energy.MaxEnergyInt,
+                CharacterManager.Energy.CurrentEnergyInt
             );
             UpdateEnergyDisplay(this, initialEnergyArgs);
         }
@@ -95,8 +95,8 @@ public class EnergyInterfaceController: MonoBehaviour
         if (CharacterManager != null)
         {
             var energyArgs = new EnergyChangedEventArgs(
-                CharacterManager.Data.currentEnergy,
-                CharacterManager.Data.TotalMaxEnergy,
+                CharacterManager.Energy.CurrentEnergyInt,
+                CharacterManager.Energy.MaxEnergyInt,
                 0
             );
             UpdateEnergyDisplay(this, energyArgs);
@@ -107,7 +107,7 @@ public class EnergyInterfaceController: MonoBehaviour
     {
         if (CharacterManager == null) return 0;
         
-        float energyPercentage = (float)CharacterManager.Data.currentEnergy / CharacterManager.Data.TotalMaxEnergy;
+        float energyPercentage = CharacterManager.Energy.MaxEnergyInt > 0 ? (float)CharacterManager.Energy.CurrentEnergyInt / CharacterManager.Energy.MaxEnergyInt : 0f;
         return Mathf.RoundToInt(energyPercentage * 100);
     }
     

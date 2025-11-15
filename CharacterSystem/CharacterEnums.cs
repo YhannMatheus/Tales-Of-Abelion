@@ -44,8 +44,10 @@ public enum ModifierVar
 {
     physicalResistence,
     physicalDamage,
+    armorPenetration,
     magicalResistence,
     magicalDamage,
+    magicPenetration,
     maxHealth,
     maxEnergy,
     strength,
