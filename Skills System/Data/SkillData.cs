@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "New Skill", menuName = "Skill")]
+[CreateAssetMenu(fileName = "New Skill", menuName = "Skills/New Skill")]
 public class SkillData : ScriptableObject
 {
     [Header("Basic Info")]
@@ -9,12 +9,19 @@ public class SkillData : ScriptableObject
     public string skillName;                                        // nome exibido da skill
     [TextArea (5,10)]public string description;                     // descrição da skill
     public Sprite icon;                                             // ícone exibido na UI
-    public SkillCategory skillCategory = SkillCategory.None;        // categorias (flags)
     public SkillType skillType;                                     // tipo de skill (ativa/passiva/etc)
-    public int energyCost;                                          // custo principal (ex: energia) para usar a skill
+    public int energyCost;                                          // custo principal para usar a skill
+
+    [Header("Comportamentos")]
+
+    public List<EffectData> Effects;                           // lista de efeitos passivos aplicados enquanto a skill estiver ativa
 
     [Header("Conditionais")]
     public bool isCastable;                                         // indica se a habilidade pode ser interrompida ou não
+    public bool requiresGroundTarget;                               // se a skill requer um alvo no chão
+    public bool requiresLineOfSight;                                // se a skill requer linha de visão para o alvo
+    public bool canCastWhileMoving;                                 // se a skill pode ser conjurada enquanto o personagem está se movendo
+    public bool canCastWhileStunned;                                // se a skill pode ser conjurada enquanto o personagem está atordoado
 
     [Header("Animation")]
     public float cooldownTime;                                      // tempo de recarga em segundos
@@ -54,24 +61,19 @@ public class SkillData : ScriptableObject
     public bool syncWithAnimationEvents = false;                   // sincronizar efeitos via Animation Events
     public List<float> hitEventNormalizedTimes = new List<float>(); // tempos normalizados (0..1) para disparar hits/efeitos
 
-    [Header("Buffs")]
-    public float buffDuration = 0f;                                 // duração padrão do buff aplicado pela skill
-    public List<SkillModifier> effects = new List<SkillModifier>(); // modificadores (struct) aplicados
-    public bool distributeBuffOverTime = false;                      // distribuir o buff ao longo do tempo (DoT/HoT)
-    public float buffTickInterval = 1f;                             // intervalo entre ticks quando distribuído
-    public bool isDebuff = false;                                   // marca o buff como debuff se true
-
     [Header("Targeting")]
     public TargetingMode targetingMode;                             // modo de targeting da skill (Self/Enemy/Area/etc)
     public TargetFilter targetFilter;                               // filtro de alvos (Enemies/Allies/All/etc)
 
     [Header("Skill Prefab")]
     public GameObject skillPrefab;                                  // prefab usado para efeitos visuais/execução da skill
+    
     [Header("Damage")]
     public float baseDamage;                                        // dano base da skill
     public float damageModifierValue;                               // valor do modificador de dano (aplicado conforme operação)
     public float characterLifePercentInfluence = 0.0f;              // influência do HP do personagem no dano (percentual)
     public DamageType damageType = DamageType.None;                 // tipo de dano
+    public DamageOrigin damageOrigin = DamageOrigin.None;           // origem/elemento do dano
     public DamageScaling damageScaling = DamageScaling.None;        // tipo de scaling do dano
     public ModifierOperation damageModifierOperation = ModifierOperation.Add; // operação do modificador de dano
 
@@ -94,7 +96,7 @@ public class SkillData : ScriptableObject
     [Header("Projectile")]
     public ProjectileBehavior projectileBehavior = ProjectileBehavior.Linear; // comportamento do projétil
     public float projectileSpeed;                                   // velocidade do projétil
-    public float projectileLifetime;                               // tempo de vida do projétil
+    public float projectileLifetime;                                // tempo de vida do projétil
     public bool consumeOnHit = true;                                // consumir (destruir) a instância ao atingir um alvo
 
     [Header("Skill Levels")]

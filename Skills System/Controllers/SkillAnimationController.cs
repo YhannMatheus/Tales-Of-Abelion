@@ -84,10 +84,15 @@ public class SkillAnimationController
         _animator = null;
     }
    
+    // Notifica progresso normalizado a cada Tick
+    public event Action<float> OnProgressChanged;
+
     public void Tick(float deltaTime)
     {
         if (!_isPlaying) return;
         _elapsed += deltaTime;
+        float normalized = NormalizedProgress;
+        OnProgressChanged?.Invoke(normalized);
         if (_elapsed >= _duration)
             Finish();
     }

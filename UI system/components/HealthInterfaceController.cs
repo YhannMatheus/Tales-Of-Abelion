@@ -33,9 +33,9 @@ public class HealthInterfaceController: MonoBehaviour
             
 
             var initialHealthArgs = new HealthChangedEventArgs(
-                CharacterManager.Data.currentHealth,
-                CharacterManager.Data.TotalMaxHealth,
-                CharacterManager.Data.currentHealth 
+                CharacterManager.Health.CurrentHealth,
+                CharacterManager.Health.MaxHealth,
+                CharacterManager.Health.CurrentHealth 
             );
             UpdateHealthDisplay(this, initialHealthArgs);
         }
@@ -97,8 +97,8 @@ public class HealthInterfaceController: MonoBehaviour
         {
             // Cria EventArgs manualmente para atualizar display
             var healthArgs = new HealthChangedEventArgs(
-                CharacterManager.Data.currentHealth,
-                CharacterManager.Data.TotalMaxHealth,
+                CharacterManager.Health.CurrentHealth,
+                CharacterManager.Health.MaxHealth,
                 0 // previousHealth não importa aqui
             );
             UpdateHealthDisplay(this, healthArgs);
@@ -109,7 +109,7 @@ public class HealthInterfaceController: MonoBehaviour
     {
         if (CharacterManager == null) return 0;
         
-        float healthPercentage = (float)CharacterManager.Data.currentHealth / CharacterManager.Data.TotalMaxHealth;
+        float healthPercentage = (float)CharacterManager.Health.CurrentHealth / CharacterManager.Health.MaxHealth;
         return Mathf.RoundToInt(healthPercentage * 100);
     }
     

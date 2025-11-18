@@ -46,6 +46,16 @@ public class CharacterManager : MonoBehaviour
 
     public CharacterData Data => characterData;
     public EnergyController Energy => energyController;
+    public HealthController Health => healthController;
+    // Interfaces expostas para consumo externo (somente-leitura)
+    public IHealthController HealthInterface => healthController;
+    public IEnergyController EnergyInterface => energyController;
+    public IExperienceController ExperienceInterface => experienceController;
+    public IModifiersController ModifiersInterface => modifiersController;
+    public int ExperiencePoints => characterData.experiencePoints;
+    public int ExperienceToNextLevel => characterData.experienceToNextLevel;
+    public int Level => characterData.level;
+    public EnergyType EnergyType => characterData.energyType;
 
     private void Awake()
     {
@@ -57,6 +67,15 @@ public class CharacterManager : MonoBehaviour
         modifiersController.Initialize(this);
         // Inicializar ExperienceController
         experienceController.Initialize(this);
+        
+        // Subscrever eventos dos controllers para que o Manager seja o re-emissor único
+        // EnergyController emite eventos próprios; aqui transformamos em EnergyChangedEventArgs
+        energyController.OnManaChanged += HandleEnergyControllerChanged;
+        energyController.OnStaminaChanged += HandleEnergyControllerChanged;
+        energyController.OnFuryChanged += HandleEnergyControllerChanged;
+
+        // HealthController emitirá eventos locais que o Manager re-emite como HealthChangedEventArgs
+        healthController.OnHealthChanged += HandleHealthControllerChanged;
     }
 
     private void Start()
@@ -91,6 +110,7 @@ public class CharacterManager : MonoBehaviour
         experienceController.SyncAfterInitialization();
         energyController.SyncAfterInitialization();
 
+        // Emitir estado inicial de energia via evento do controller (ou emitir manualmente se necessário)
         _previousEnergy = 0;
         OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
             energyController.CurrentEnergyInt,
@@ -123,14 +143,10 @@ public class CharacterManager : MonoBehaviour
             // Regenera no intervalo configurado (padrão: 1 segundo)
             if (_healthRegenTimer >= healthRegenInterval)
             {
-                _previousHealth = characterData.currentHealth;
+                _previousHealth = healthController.CurrentHealth;
                 int regenAmount = Mathf.RoundToInt(characterData.TotalHealthRegen);
                 healthController.Heal(regenAmount);
-                
-                OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-                    characterData.currentHealth, 
-                    characterData.TotalMaxHealth, 
-                    _previousHealth));
+                // HealthController emits event; Manager will re-emit via handler
                 
                 _healthRegenTimer = 0f;
             }
@@ -146,11 +162,7 @@ public class CharacterManager : MonoBehaviour
             {
                     _previousEnergy = energyController.CurrentEnergyInt;
                     energyController.RestoreEnergy(characterData.energyRegen);
-                    
-                    OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-                        energyController.CurrentEnergyInt,
-                        energyController.MaxEnergyInt,
-                        _previousEnergy));
+                    // EnergyController emite seu evento internamente; Manager irá re-emitir via handler
                 
                 _energyRegenTimer = 0f;
             }
@@ -162,7 +174,7 @@ public class CharacterManager : MonoBehaviour
     {
         if (!characterData.IsAlive) return;
 
-        _previousHealth = characterData.currentHealth;
+        _previousHealth = healthController.CurrentHealth;
         // Resistencia do alvo
         float resistance = isMagical ? characterData.TotalMagicalResistance : characterData.TotalPhysicalResistance;
 
@@ -183,17 +195,13 @@ public class CharacterManager : MonoBehaviour
         // Aplica dano final via HealthController
         healthController.TakeDamage(finalDamage);
 
-        OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-            characterData.currentHealth,
-            characterData.TotalMaxHealth,
-            _previousHealth));
-        
+        // Manager emite detalhes do dano (raw/final/reduction) - HealthChanged será re-emitido pelo handler
         OnTakeDamage?.Invoke(this, new DamageTakenEventArgs(
             damage,
             finalDamage,
             damageReduction,
             isMagical,
-            characterData.currentHealth));
+            healthController.CurrentHealth));
 
         // Verificar morte
         if (!characterData.IsAlive)
@@ -207,13 +215,9 @@ public class CharacterManager : MonoBehaviour
     {
         if (!characterData.IsAlive) return;
 
-        _previousHealth = characterData.currentHealth;
+        _previousHealth = healthController.CurrentHealth;
         healthController.Heal(amount);
-        
-        OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-            characterData.currentHealth,
-            characterData.TotalMaxHealth,
-            _previousHealth));
+        // HealthController emite evento local; Manager re-emite via handler
     }
     
     public void RestoreEnergy(int amount)
@@ -221,11 +225,7 @@ public class CharacterManager : MonoBehaviour
         if (!characterData.IsAlive) return;
         _previousEnergy = energyController.CurrentEnergyInt;
         energyController.RestoreEnergy(amount);
-
-        OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-            energyController.CurrentEnergyInt,
-            energyController.MaxEnergyInt,
-            _previousEnergy));
+        // EnergyController emite evento; Manager re-emite via handler
     }
 
     // Tenta usar energia (para habilidades)
@@ -238,10 +238,7 @@ public class CharacterManager : MonoBehaviour
 
         if (success)
         {
-                OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-                    energyController.CurrentEnergyInt,
-                    energyController.MaxEnergyInt,
-                    _previousEnergy));
+                // EnergyController emitted its own event; Manager will re-emit via handler
         }
 
         return success;
@@ -272,15 +269,7 @@ public class CharacterManager : MonoBehaviour
                 characterData.experienceToNextLevel,
                 characterData.experiencePoints));
             
-            OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-                characterData.currentHealth,
-                characterData.TotalMaxHealth,
-                _previousHealth));
-            
-            OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-                energyController.CurrentEnergyInt,
-                energyController.MaxEnergyInt,
-                _previousEnergy));
+            // Após LevelUp, controllers já ajustaram seus valores; events serão re-emitidos pelos handlers
         }
     }
 
@@ -291,17 +280,16 @@ public class CharacterManager : MonoBehaviour
         
         if (variable == ModifierVar.maxHealth)
         {
-            OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-                characterData.currentHealth,
-                characterData.TotalMaxHealth,
-                _previousHealth));
+            // Recalcula / clamp da vida atual para refletir o novo máximo
+            healthController.SetCurrentHealth(healthController.CurrentHealth);
+            // HealthController emitirá evento e Manager re-emite via handler
         }
         else if (variable == ModifierVar.maxEnergy)
         {
-            OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-                energyController.CurrentEnergyInt,
-                energyController.MaxEnergyInt,
-                _previousEnergy));
+            // Atualiza valores do EnergyController a partir do CharacterData e forçar clamp
+            energyController.SyncAfterInitialization();
+            energyController.SetCurrentEnergy(energyController.CurrentEnergyInt);
+            // EnergyController emitirá evento e Manager re-emite via handler
         }
     }
 
@@ -313,12 +301,7 @@ public class CharacterManager : MonoBehaviour
     protected void Die()
     {
         healthController.SetCurrentHealth(0);
-        
-        OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-            characterData.currentHealth,
-            characterData.TotalMaxHealth,
-            _previousHealth));
-        
+        // HealthController emits change; Manager re-emits via handler
         OnDeath?.Invoke(this, new DeathEventArgs(
             characterType,
             characterData.characterName,
@@ -335,15 +318,7 @@ public class CharacterManager : MonoBehaviour
         _previousEnergy = energyController.CurrentEnergyInt;
         energyController.SetCurrentEnergy(restoredEnergy);
 
-        OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(
-            characterData.currentHealth,
-            characterData.TotalMaxHealth,
-            _previousHealth));
-        
-        OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(
-            energyController.CurrentEnergyInt,
-            energyController.MaxEnergyInt,
-            _previousEnergy));
+        // Controllers emit events; Manager will re-emit via handlers
         
         OnRevive?.Invoke(this, new ReviveEventArgs(
             restoredHealth,
@@ -358,11 +333,39 @@ public class CharacterManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        energyController.Cleanup();
+        // Unsubscribe handlers and cleanup controllers
+        if (energyController != null)
+        {
+            energyController.OnManaChanged -= HandleEnergyControllerChanged;
+            energyController.OnStaminaChanged -= HandleEnergyControllerChanged;
+            energyController.OnFuryChanged -= HandleEnergyControllerChanged;
+            energyController.Cleanup();
+        }
+
+        if (healthController != null)
+        {
+            healthController.OnHealthChanged -= HandleHealthControllerChanged;
+        }
     }
 
     private void OnValidate()
     {
         energyController.ValidateValues();
+    }
+
+    // Handlers para eventos vindos dos controllers - Manager re-emite eventos centralizados
+    private void HandleEnergyControllerChanged(object sender, EnergyTypeChangedEventArgs e)
+    {
+        int current = Mathf.RoundToInt(e.CurrentValue);
+        int max = Mathf.RoundToInt(e.MaxValue);
+        int previous = Mathf.RoundToInt(e.PreviousValue);
+
+        OnEnergyChanged?.Invoke(this, new EnergyChangedEventArgs(current, max, previous));
+    }
+
+    private void HandleHealthControllerChanged(object sender, HealthChangedEventArgs e)
+    {
+        // Re-emitir com o Manager como sender
+        OnHealthChanged?.Invoke(this, new HealthChangedEventArgs(e.CurrentHealth, e.MaxHealth, e.PreviousHealth));
     }
 }

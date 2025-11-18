@@ -13,18 +13,14 @@ public enum EnergyType
     Fury        // Começa zerada, ganha ao atacar/receber dano, dispara evento ao máximo
 }
 
-/// <summary>
-/// Define o modo de consumo/regeneração de energia
-/// </summary>
+// Define o modo de consumo/regeneração de energia
 public enum EnergyModificationMode
 {
     Flat,       // Valor absoluto (ex: +50 mana)
     Percentage  // Valor percentual (ex: +25% do máximo)
 }
 
-/// <summary>
 /// Fonte de ganho de Fúria
-/// </summary>
 public enum FuryGainSource
 {
     DealDamage,     // Ao causar dano

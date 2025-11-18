@@ -2,7 +2,7 @@ using UnityEngine;
 using System;
 
 [System.Serializable]
-public class ModifiersController
+public class ModifiersController : IModifiersController
 {
     [System.NonSerialized] private CharacterManager _character;
 

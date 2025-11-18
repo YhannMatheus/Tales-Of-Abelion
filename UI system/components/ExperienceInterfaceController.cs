@@ -34,9 +34,9 @@ public class ExperienceInterfaceController: MonoBehaviour
             
             var initialExpArgs = new ExperienceGainedEventArgs(
                 0,
-                CharacterManager.Data.experiencePoints,
-                CharacterManager.Data.experienceToNextLevel,
-                CharacterManager.Data.level
+                CharacterManager.ExperiencePoints,
+                CharacterManager.ExperienceToNextLevel,
+                CharacterManager.Level
             );
             UpdateExperienceDisplay(this, initialExpArgs);
         }
@@ -120,8 +120,8 @@ public class ExperienceInterfaceController: MonoBehaviour
     {
         if (CharacterManager == null) return 0;
         
-        float expPercentage = CharacterManager.Data.experienceToNextLevel > 0 
-            ? (float)CharacterManager.Data.experiencePoints / CharacterManager.Data.experienceToNextLevel 
+        float expPercentage = CharacterManager.ExperienceToNextLevel > 0 
+            ? (float)CharacterManager.ExperiencePoints / CharacterManager.ExperienceToNextLevel 
             : 0f;
         return Mathf.RoundToInt(expPercentage * 100);
     }

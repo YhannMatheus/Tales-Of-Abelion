@@ -2,7 +2,7 @@ using UnityEngine;
 using System;
 
 [System.Serializable]
-public class ExperienceController
+public class ExperienceController : IExperienceController
 {
     [NonSerialized] private CharacterManager _character;
 
@@ -46,14 +46,20 @@ public class ExperienceController
         data.experiencePoints -= data.experienceToNextLevel;
         data.experienceToNextLevel = CalculateExperienceForNextLevel(data);
 
-        // Ajusta vida/energia ao subir de nível
-        data.currentHealth = data.TotalMaxHealth;
-        data.currentEnergy = data.TotalMaxEnergy;
-
-        // Sincronizar EnergyController para refletir o novo valor atual
+        // Ajusta vida/energia ao subir de nível usando os controllers
         if (_character != null)
         {
-            _character.Energy.SetCurrentEnergy(data.currentEnergy);
+            // Atualiza vida via HealthController
+            _character.Health.SetCurrentHealth(data.TotalMaxHealth);
+
+            // Atualiza energia via EnergyController
+            _character.Energy.SetCurrentEnergy(data.TotalMaxEnergy);
+        }
+        else
+        {
+            // Fallback: atualiza os dados diretamente se não houver CharacterManager
+            data.currentHealth = data.TotalMaxHealth;
+            data.currentEnergy = data.TotalMaxEnergy;
         }
     }
 

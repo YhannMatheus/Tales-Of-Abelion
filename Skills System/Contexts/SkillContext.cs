@@ -12,7 +12,6 @@ public struct SkillContext
     // Quem e onde00
     public CharacterManager Caster;        // personagem que lançou a skill
     public CharacterManager TargetCharacter; // alvo (se aplicável)
-    public GameObject TargetGameObject;    // alvo genérico (prefab/objeto)
     public Vector3 TargetPosition;         // posição alvo (skill de posição/direção)
 
     // Runtime / valores resolvidos
@@ -45,7 +44,6 @@ public struct SkillContext
         SkillLevel = skillLevel;
         Caster = caster;
         TargetCharacter = targetCharacter != null ? targetCharacter : null;
-        TargetGameObject = null;
         TargetPosition = targetPos;
 
         ResolvedAttackSpeed = caster != null ? caster.Data.TotalAttackSpeed : 1f;

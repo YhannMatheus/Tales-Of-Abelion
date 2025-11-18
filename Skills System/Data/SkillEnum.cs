@@ -1,6 +1,4 @@
-using UnityEngine;
 using System;
-using System.Collections.Generic;
 public enum SkillType
 {
     Active,      // Skill ativa (precisa apertar botão)
@@ -115,15 +113,24 @@ public enum PlaybackMode
     FitToCastTime,      // ajustar duração conforme tempo de lançamento
     FixedDuration       // duração fixa (definida pelo usuário)
 }
-
-[System.Serializable]
-public struct SkillModifier
+public enum EffectTiming
 {
-    public ModifierVar variable;
-    public ModifierOperation operation;
-    public float baseValue;
-    public float incrementalValue;
-    public float durationForIncrement; // se 0 é instantâneo, tempo para aplicar o efeito totalmente
-    public float durationForDecrement; // se 0 é instantâneo, tempo para remover o efeito totalmente
-    public Effect effect; 
+    OnCast,             // ao lançar a skill
+    OnHit,              // ao atingir o alvo
+    OverTime,           // ao longo do tempo
+    Passive,            // efeito passivo
+    Aura,
+}
+
+public enum DamageOrigin
+{
+    None,
+    Fire,
+    Ice,
+    Lightning,
+    Earth,
+    Wind,
+    Water,
+    Light,
+    Dark,
 }

@@ -2,7 +2,7 @@ using UnityEngine;
 using System;
 
 [System.Serializable]
-public class EnergyController
+public class EnergyController : IEnergyController
 {
     [Header("Tipo de Energia Ativa")]
     [SerializeField] private EnergyType energyType = EnergyType.Mana;

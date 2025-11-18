@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEditor.Animations;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewClassData", menuName = "CharacterManager System/ClassData")]
@@ -7,8 +6,7 @@ public class ClassData : ScriptableObject
 {
     [Header("Basic Information")]
     public string className;
-    public AnimatorController animatorController;
-
+    public RuntimeAnimatorController animatorController;
     [TextArea]
     public string classDescription;
     public int baseMaxHealth;
