@@ -10,7 +10,7 @@ public class PlayerMotor
     [Header("Movement Settings")]
     public float gravity = -9.81f;
     private float _verticalVelocity = 0f;
-    public float groundedStick = 0f; // pequena força para manter o player preso ao chão
+    public float groundedStick = 0f;
     public float rotationSpeed = 10f;
 
     [Header("Ground Check")]

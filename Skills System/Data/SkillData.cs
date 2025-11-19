@@ -12,8 +12,12 @@ public class SkillData : ScriptableObject
     public SkillType skillType;                                     // tipo de skill (ativa/passiva/etc)
     public int energyCost;                                          // custo principal para usar a skill
 
-    [Header("Comportamentos")]
+    [Header("Player Requirements")]
+    public int requiredLevel;                                       // nível mínimo necessário para desbloquear a skill
+    public int requiredSkillPoints;                                 // pontos de skill necessários para desbloquear a skill
+    public List<string> requiredSkills;                             // lista de IDs de skills necessárias para desbloquear esta skill
 
+    [Header("Comportamentos")]
     public List<EffectData> Effects;                           // lista de efeitos passivos aplicados enquanto a skill estiver ativa
 
     [Header("Conditionais")]
@@ -43,7 +47,6 @@ public class SkillData : ScriptableObject
     public bool forcePlaybackToFitAttacksPerSecond = true;         // forçar ajuste para 1/attackSpeed
 
     [Header("Execution")]
-    // Como ajustar a duração/velocidade da animação: definido em SkillEnum.PlaybackMode
     public PlaybackMode playbackMode = PlaybackMode.FitToAttackSpeed; // modo de cálculo do playback (enum)
 
     [Header("Animation - Playback & IK")]

@@ -21,10 +21,11 @@ public class SkillAnimationController
             return;
         }
 
-        Stop(); //limpeza
+        Stop(true); // limpeza; por padrão invoca onComplete quando terminar normalmente
 
         _animator = animator;
         _onComplete = onComplete;
+        _invokeCompleteOnFinish = true;
 
         // calcula o playbackSpeed que será passado ao AnimationClipPlayable.SetSpeed
         float playbackSpeed = Mathf.Max(0.0001f, TimeOfAnimation(data, attackSpeed));
@@ -63,9 +64,12 @@ public class SkillAnimationController
         return playbackSpeed;
     }
 
-    public void Stop()
+    private bool _invokeCompleteOnFinish = true;
+
+    public void Stop(bool invokeComplete = true)
     {
         if (!_isPlaying) return;
+        _invokeCompleteOnFinish = invokeComplete;
         Finish();
     }
 
@@ -79,7 +83,8 @@ public class SkillAnimationController
         }
         catch { /* evitar exceptions no teardown */ }
 
-        _onComplete?.Invoke();
+        if (_invokeCompleteOnFinish)
+            _onComplete?.Invoke();
         _onComplete = null;
         _animator = null;
     }

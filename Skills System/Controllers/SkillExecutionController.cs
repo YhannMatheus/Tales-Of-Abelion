@@ -22,6 +22,7 @@ public class SkillExecutionController
     // Auxiliares responsáveis por efeitos e tempos/cooldown
     private SkillEffectController _effectController;
     private SkillTimesController _timesController;
+    private SkillAnimationController _animationController;
 
     // ----- Propriedades -----
     public bool IsOnCooldown => _timesController != null ? _timesController.IsOnCooldown : _cooldownTimer > 0f;
@@ -62,6 +63,7 @@ public class SkillExecutionController
         castPoint = castTransform;
         _effectController = new SkillEffectController(data, character);
         _timesController = new SkillTimesController(data, character);
+        _animationController = new SkillAnimationController();
     }
 
     // Liga referências de runtime (usado pelo SkillManager para injetar Character e pontos de cast)
@@ -72,6 +74,8 @@ public class SkillExecutionController
         // recreate or update helpers
         _effectController = new SkillEffectController(data, character);
         _timesController = new SkillTimesController(data, character);
+        if (_animationController == null)
+            _animationController = new SkillAnimationController();
     }
 
     // TryExecute é o ponto de entrada principal para execução de skills ativas
@@ -87,6 +91,17 @@ public class SkillExecutionController
             {
                 _lastFailureReason = "Falha ao gastar energia";
                 return false;
+            }
+        }
+
+        // Dispara animação da skill via SkillAnimationController
+        if (data.animation != null && character != null)
+        {
+            var animator = character.GetComponentInChildren<Animator>();
+            if (animator != null)
+            {
+                float attackSpeed = character.Data.TotalAttackSpeed;
+                _animationController?.Play(animator, data, attackSpeed, null);
             }
         }
 
@@ -234,6 +249,8 @@ public class SkillExecutionController
     {
         // avança o controlador de tempos/animação
         _timesController?.TickAnimation(deltaTime);
+        // atualiza PlayableGraph da animação de skill
+        _animationController?.Tick(deltaTime);
     }
 
     public void StopAnimation()
@@ -242,9 +259,29 @@ public class SkillExecutionController
         _timesController?.StopAnimation();
     }
 
+    /// <summary>
+    /// Tenta interromper a animação/execução atual (por exemplo quando o player se move).
+    /// Retorna true se a animação foi cancelada. A interrupção respeita o castTime
+    /// definido no SkillData (não cancela se já passou do tempo mínimo).
+    /// </summary>
+    public bool TryInterruptAnimation()
+    {
+        if (_timesController == null) return false;
+        return _timesController.TryInterruptAnimation();
+    }
+
     // Animation progress handled by SkillTimesController
 
     // ----- Cálculos / Auxiliares -----
+    
+    /// <summary>
+    /// Calcula velocidade de playback da animação (público para eventos)
+    /// </summary>
+    public float CalculatePlaybackSpeed()
+    {
+        return CalculatePlaybackSpeed(data, character, -1f);
+    }
+
     private float CalculatePlaybackSpeed(SkillData data, CharacterManager character, float explicitAttackSpeed = -1f)
     {
         if (data == null || data.animation == null) return 1f;

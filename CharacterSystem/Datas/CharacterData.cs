@@ -38,6 +38,7 @@ public class CharacterData
     public int freePoints;
 
     [Header("Skills")]
+    public int skillPoints;
     public List<SkillData> Skills = new List<SkillData>();
 
     [Header("Modifiers")]

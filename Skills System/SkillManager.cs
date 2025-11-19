@@ -42,10 +42,15 @@ public abstract class SkillManager : MonoBehaviour
     
     private void Update()
     {
-        UpdateCooldowns(Time.deltaTime);
-        ApplyPassiveSkills();
+        UpdateCooldowns(Time.deltaTime); // Atualiza cooldowns de todas as skills
+        UpdateSkillAnimations(Time.deltaTime); // Atualiza animações de skills em progresso
+        InstructionForUse(); // Verifica inputs para uso de skills
+        ApplyPassiveSkills(); // Aplica efeitos de skills passivas
     }
 
+    public abstract void InstructionForUse();
+
+    /// Inscrever eventos para requests de spawn de projéteis
     private void OnEnable()
     {
         if (skillSlots == null) return;
@@ -56,6 +61,7 @@ public abstract class SkillManager : MonoBehaviour
         }
     }
 
+    /// Dessubscrever eventos para evitar memory leaks
     private void OnDisable()
     {
         if (skillSlots == null) return;
@@ -84,6 +90,24 @@ public abstract class SkillManager : MonoBehaviour
                     OnCooldownChanged?.Invoke(i, sc.CooldownRemaining, sc.CooldownPercent);
                 }
             }
+        }
+    }
+
+    private void UpdateSkillAnimations(float deltaTime)
+    {
+        // Atualiza SkillAnimationController de cada slot
+        for (int i = 0; i < skillSlots.Length; i++)
+        {
+            if (skillSlots[i] != null)
+            {
+                skillSlots[i].TickAnimation(deltaTime);
+            }
+        }
+
+        // Atualiza basic attack também
+        if (basicAttackSkill != null)
+        {
+            basicAttackSkill.TickAnimation(deltaTime);
         }
     }
 

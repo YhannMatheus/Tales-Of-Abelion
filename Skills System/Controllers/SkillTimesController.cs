@@ -14,6 +14,8 @@ public class SkillTimesController
     private SkillAnimationController _animationController;
     private List<float> _pendingHitTimes;
     private SkillContext _currentContext;
+    private float _animationDuration = 0f;
+    private Action<float> _progressDelegate;
 
     public SkillTimesController(SkillData data, CharacterManager character)
     {
@@ -60,8 +62,12 @@ public class SkillTimesController
             _pendingHitTimes.Sort();
         }
 
-        // inscrever callback de progresso para sincronizar hits
-        _animationController.OnProgressChanged += (normalized) => HandleAnimationProgress(normalized, onHitCallback, onComplete);
+        // calcula duração da reprodução (segundos) para permitir checar castTime/interrupt
+        _animationDuration = Mathf.Abs(_data.animation.length / Mathf.Max(0.0001f, playbackSpeed));
+
+        // inscrever callback de progresso para sincronizar hits (salvar delegate para dessinscrever corretamente)
+        _progressDelegate = (normalized) => HandleAnimationProgress(normalized, onHitCallback, onComplete);
+        _animationController.OnProgressChanged += _progressDelegate;
 
         _animationController.Play(animator, _data, playbackSpeed, onComplete);
     }
@@ -73,7 +79,11 @@ public class SkillTimesController
         if (!_animationController.IsPlaying)
         {
             // dessinscrever e limpar estado quando a reprodução terminar
-            _animationController.OnProgressChanged -= (normalized) => HandleAnimationProgress(normalized, null, null);
+            if (_progressDelegate != null)
+            {
+                _animationController.OnProgressChanged -= _progressDelegate;
+                _progressDelegate = null;
+            }
             _animationController = null;
             _pendingHitTimes = null;
             _currentContext = default;
@@ -83,9 +93,13 @@ public class SkillTimesController
     public void StopAnimation()
     {
         if (_animationController == null) return;
-        // dessinscrever e parar animação explicitamente
-        _animationController.OnProgressChanged -= (normalized) => HandleAnimationProgress(normalized, null, null);
-        _animationController.Stop();
+        // dessinscrever e parar animação explicitamente (invoca onComplete)
+        if (_progressDelegate != null)
+        {
+            _animationController.OnProgressChanged -= _progressDelegate;
+            _progressDelegate = null;
+        }
+        _animationController.Stop(true);
         _animationController = null;
         _pendingHitTimes = null;
         _currentContext = default;
@@ -107,11 +121,60 @@ public class SkillTimesController
         if (normalized >= 1f)
         {
             // fim da animação: dessinscrever e limpar estado
-            if (_animationController != null)
-                _animationController.OnProgressChanged -= (n) => HandleAnimationProgress(n, onHitCallback, onComplete);
+            if (_animationController != null && _progressDelegate != null)
+                _animationController.OnProgressChanged -= _progressDelegate;
             _pendingHitTimes = null;
             _currentContext = default;
         }
+    }
+
+    /// <summary>
+    /// Tenta interromper a animação atual. A interrupção só ocorrerá se a animação
+    /// estiver em progresso e o progresso normalizado for menor que a fração
+    /// mínima necessária (castTime / animationDuration). Retorna true se a animação
+    /// foi parada (cancelada).
+    /// </summary>
+    public bool TryInterruptAnimation()
+    {
+        if (_animationController == null || !_animationController.IsPlaying) return false;
+        if (_animationDuration <= 0f) return false;
+
+        float minCast = _data != null ? _data.castTime : 0f;
+        if (minCast <= 0f)
+        {
+            // sem castTime mínimo, não interrompemos (ou interrompe sempre?).
+            // Decidimos permitir interrupção imediata quando castTime == 0.
+            // Aqui consideramos que interruption is allowed only when minCast == 0.
+            _animationController.Stop(false);
+            if (_progressDelegate != null)
+            {
+                _animationController.OnProgressChanged -= _progressDelegate;
+                _progressDelegate = null;
+            }
+            _animationController = null;
+            _pendingHitTimes = null;
+            _currentContext = default;
+            return true;
+        }
+
+        float normalized = _animationController.NormalizedProgress;
+        float threshold = Mathf.Clamp01(minCast / _animationDuration);
+        if (normalized < threshold)
+        {
+            // cancelar sem invocar onComplete
+            _animationController.Stop(false);
+            if (_progressDelegate != null)
+            {
+                _animationController.OnProgressChanged -= _progressDelegate;
+                _progressDelegate = null;
+            }
+            _animationController = null;
+            _pendingHitTimes = null;
+            _currentContext = default;
+            return true;
+        }
+
+        return false;
     }
 
     private float CalculatePlaybackSpeed(SkillData data, CharacterManager character, float explicitAttackSpeed = -1f)

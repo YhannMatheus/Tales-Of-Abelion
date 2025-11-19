@@ -1,17 +1,11 @@
 [System.Serializable]
-public class StateBase
+public abstract class StateBase
 {
-    public virtual void EnterState(PlayerManager playerManager)
-    {
-    }
+    public abstract void EnterState(PlayerManager playerManager);
 
-    public virtual void UpdateState(PlayerManager playerManager)
-    {
-    }
+    public abstract void UpdateState(PlayerManager playerManager);
 
-    public virtual void ExitState(PlayerManager playerManager)
-    {
-    }
+    public abstract void ExitState(PlayerManager playerManager);
 
 
     public virtual bool CanMove => true;
