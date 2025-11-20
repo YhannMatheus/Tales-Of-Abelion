@@ -11,7 +11,7 @@ public struct SkillContext
 
     // Quem e onde00
     public CharacterManager Caster;        // personagem que lançou a skill
-    public CharacterManager TargetCharacter; // alvo (se aplicável)
+    public GameObject Target; // alvo (se aplicável)
     public Vector3 TargetPosition;         // posição alvo (skill de posição/direção)
     // Estado e callbacks
     public Action OnComplete;              // callback chamado quando a execução terminar
@@ -19,12 +19,12 @@ public struct SkillContext
     public Dictionary<string, object> Metadata;
 
     // Construtor helper (opcional)
-    public SkillContext(SkillData skill, CharacterManager caster, CharacterManager targetCharacter, Vector3 targetPos, int skillLevel = 1)
+    public SkillContext(SkillData skill, CharacterManager caster, GameObject target, Vector3 targetPos, int skillLevel = 1)
     {
         Skill = skill;
         SkillLevel = skillLevel;
         Caster = caster;
-        TargetCharacter = targetCharacter != null ? targetCharacter : null;
+        Target = target != null ? target : null;
         TargetPosition = targetPos;
 
         OnComplete = null;

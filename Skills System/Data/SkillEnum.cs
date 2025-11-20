@@ -117,9 +117,8 @@ public enum EffectTiming
 {
     OnCast,             // ao lançar a skill
     OnHit,              // ao atingir o alvo
-    OverTime,           // ao longo do tempo
     Passive,            // efeito passivo
-    Aura,
+
 }
 
 public enum DamageOrigin
@@ -133,4 +132,19 @@ public enum DamageOrigin
     Water,
     Light,
     Dark,
+}
+
+[System.Serializable]
+public enum EffectType
+{
+    Buff,
+    Debuff,
+    DamageOverTime,
+    HealOverTime,
+    Shield,
+    Stun,
+    Slow,
+    Root,
+    Silence,
+    Knockback
 }

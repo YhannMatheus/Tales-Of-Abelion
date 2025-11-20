@@ -33,17 +33,3 @@ public class EffectData : ScriptableObject
 
 }
 
-[SerializeField]
-public enum EffectType
-{
-    Buff,
-    Debuff,
-    DamageOverTime,
-    HealOverTime,
-    Shield,
-    Stun,
-    Slow,
-    Root,
-    Silence,
-    Knockback
-}

@@ -32,6 +32,10 @@ public class PlayerMouseController
 
     public GameObject GetTargetObject()
     {
+        if (targetObject == null) return null;
+
+        if(targetObject.GetComponent<CharacterManager>() != null) return null;
+
         return targetObject;
     }
     

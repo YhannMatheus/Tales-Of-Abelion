@@ -5,7 +5,6 @@ using UnityEngine;
 public class PlayerSkillManager : SkillManager
 {
     public PlayerManager playerManager;
-    public CharacterSkillTreeController characterSkillTreeController;
     public event Action<SkillData, int?> OnSkillRequested;
 
     public bool[] inputsSkill  = new bool[8];
@@ -15,59 +14,37 @@ public class PlayerSkillManager : SkillManager
         // Garantir que temos referência ao PlayerManager antes de usar
         playerManager = GetComponent<PlayerManager>();
 
-        // Se controller de skill tree não foi fornecido via inspector, instancia um novo
-        if (characterSkillTreeController == null)
-            characterSkillTreeController = new CharacterSkillTreeController();
-
-        // Atribui o CharacterManager da player sheet (pode ser nulo se playerManager não existir)
-        characterSkillTreeController.characterManager = playerManager != null ? playerManager.sheet : null;
-
-        inputsSkill = new bool[] { 
-            InputManager.Instance.ability1Input,
-            InputManager.Instance.ability2Input,
-            InputManager.Instance.ability3Input,
-            InputManager.Instance.ability4Input,
-            InputManager.Instance.ability5Input,
-            InputManager.Instance.ability6Input,
-            InputManager.Instance.ability7Input,
-            InputManager.Instance.ability8Input
-        };
+        // Inicializa array de inputs (usaremos Input nativo do Unity)
+        inputsSkill = new bool[8];
     }
 
     public override void InstructionForUse()
     {
         // Verifica se o estado atual permite casting
-        if (playerManager != null && playerManager._playerStateMachine != null)
+        if (playerManager != null && playerManager.playerStateMachine != null)
         {
-            if (playerManager._playerStateMachine.currentState != null)
+            if (playerManager.playerStateMachine.currentState != null)
             {
-                if (!playerManager._playerStateMachine.currentState.CanCasting)
+                if (!playerManager.playerStateMachine.currentState.CanCasting)
                     return; // Estado atual não permite usar skills
             }
         }
 
-        if (InputManager.Instance.attackInput)
-        {
-            // Só executa basic attack se existir controller e puder usar
-            if (basicAttackSkill != null && basicAttackSkill.Data != null)
-            {
-                if (basicAttackSkill.CanUse())
-                {
-                    ExecuteBasicAttack(CreateContext(basicAttackSkill.Data));
-                    OnSkillRequested?.Invoke(basicAttackSkill.Data, null);
-                }
-                else
-                {
-                    Debug.LogWarning($"[PlayerSkillManager] InstructionForUse: basic attack não pode ser usado agora: {basicAttackSkill.GetLastFailureReason()}");
-                }
-            }
-        }
+        // Skills por teclas (Q,W,E,R,A,S,D,F)
+        KeyCode[] keys = new KeyCode[] {
+            KeyCode.Q, KeyCode.W, KeyCode.E, KeyCode.R,
+            KeyCode.A, KeyCode.S, KeyCode.D, KeyCode.F
+        };
 
-        for (int i = 0; i < inputsSkill.Length; i++)
+        for (int i = 0; i < keys.Length; i++)
         {
-            if (inputsSkill[i] && skillSlots.Length > i && skillSlots[i] != null)
+            if (Input.GetKeyDown(keys[i]))
             {
-                RequestSkillSlot(i);
+                // tenta usar slot correspondente
+                if (skillSlots != null && i < skillSlots.Length && skillSlots[i] != null)
+                {
+                    RequestSkillSlot(i);
+                }
             }
         }
     }
@@ -88,7 +65,7 @@ public class PlayerSkillManager : SkillManager
             return;
         }
 
-        var skillData = skillController.Data;
+        var skillData = skillController.runtimeSkill.Data;
         if (skillData == null)
         {
             Debug.LogWarning($"[PlayerSkillManager] RequestSkillSlot: SkillData em slot {slotIndex} é null");
@@ -103,7 +80,7 @@ public class PlayerSkillManager : SkillManager
         }
 
         // Cria contexto de skill
-        SkillContext context = CreateContext(skillData);
+        SkillContext context = CreateContext(skillSlots[slotIndex]);
 
         // Tenta executar a skill (a implementação herdada fará TryExecute e disparará eventos de sucesso/falha)
         UseSkill(slotIndex, context);
@@ -112,79 +89,19 @@ public class PlayerSkillManager : SkillManager
         OnSkillRequested?.Invoke(skillData, slotIndex);
     }
 
-    /// Cria um contexto de skill com base em SkillData fornecido diretamente
-    public SkillContext CreateContext(SkillData skillData)
+
+    public override SkillContext CreateContext(SkillExecutionController slot)
     {
-        if (skillData == null)
+        SkillContext context = new SkillContext
         {
-            Debug.LogWarning("[PlayerSkillManager] CreateContext: SkillData é null");
-            return default(SkillContext);
-        }
+            Skill = slot.runtimeSkill.Data,
+            Caster = playerManager.characterManager,
+            SkillLevel = slot.runtimeSkill.GetLevel(),
+            Target = playerManager.playerMouseController != null ? playerManager.playerMouseController.GetTargetObject() : null,
+            TargetPosition = playerManager.playerMouseController != null ? playerManager.playerMouseController.GetTargetPosition() : Vector3.zero
+        };
 
-        // Obter alvo do mouse (com fallback seguro)
-        Vector3 targetPos = Vector3.zero;
-        CharacterManager targetChar = null;
-        
-        if (playerManager?._playerMouseController != null)
-        {
-            targetPos = playerManager._playerMouseController.GetTargetPosition();
-            var targetObj = playerManager._playerMouseController.GetTargetObject();
-            if (targetObj != null)
-            {
-                targetChar = targetObj.GetComponent<CharacterManager>();
-            }
-        }
-
-        // Obter nível da skill (com fallback para 1)
-        int skillLevel = 1;
-        if (characterSkillTreeController != null)
-        {
-            skillLevel = characterSkillTreeController.GetSkillLevel(skillData);
-        }
-
-        SkillContext context = new SkillContext(
-            skill: skillData,
-            caster: character,
-            targetPos: targetPos,
-            targetCharacter: targetChar,
-            skillLevel: skillLevel
-        );
-
-        return context;
-    }
-
-    public SkillContext CreateContext(int skillSlot)
-    {
-        // Validações de segurança
-        if (skillSlots == null)
-        {
-            Debug.LogWarning("[PlayerSkillManager] CreateContext: skillSlots é null");
-            return default(SkillContext);
-        }
-
-        if (skillSlot < 0 || skillSlot >= skillSlots.Length)
-        {
-            Debug.LogWarning($"[PlayerSkillManager] CreateContext: skillSlot {skillSlot} fora do range [0-{skillSlots.Length - 1}]");
-            return default(SkillContext);
-        }
-
-        var skillController = skillSlots[skillSlot];
-    
-        if (skillController == null)
-        {
-            Debug.LogWarning($"[PlayerSkillManager] CreateContext: skillSlots[{skillSlot}] é null");
-            return default(SkillContext);
-        }
-
-        var skillData = skillController.Data;
-        if (skillData == null)
-        {
-            Debug.LogWarning($"[PlayerSkillManager] CreateContext: SkillData em slot {skillSlot} é null");
-            return default(SkillContext);
-        }
-
-        // Reutiliza a lógica da função principal
-        return CreateContext(skillData);
+        return context;   
     }
 
 }

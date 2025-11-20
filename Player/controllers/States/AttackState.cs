@@ -29,12 +29,12 @@ public class AttackState : StateBase
         if (playerManager == null) return;
 
         // Verifica cancelamento por novo input (clique para mover/outro alvo)
-        if (InputManager.Instance != null && InputManager.Instance.interactButton)
+        if (Input.GetMouseButtonDown(1))
         {
-            if (playerManager._playerMouseController != null)
+            if (playerManager.playerMouseController != null)
             {
-                Vector3 newTarget = playerManager._playerMouseController.GetTargetPosition();
-                GameObject targetObj = playerManager._playerMouseController.GetTargetObject();
+                Vector3 newTarget = playerManager.playerMouseController.GetTargetPosition();
+                GameObject targetObj = playerManager.playerMouseController.GetTargetObject();
 
                 // Se clicou em outro inimigo, troca alvo
                 if (targetObj != null)
@@ -49,7 +49,7 @@ public class AttackState : StateBase
                 else
                 {
                     // Clicou no chão, cancela ataque e move
-                    playerManager._playerStateMachine.SwitchState(new MoveState(newTarget));
+                    playerManager.playerStateMachine.SwitchState(new MoveState(newTarget));
                     return;
                 }
             }
@@ -58,14 +58,14 @@ public class AttackState : StateBase
         // Valida alvo
         if (target == null || target.gameObject == null || !target.gameObject.activeInHierarchy)
         {
-            playerManager._playerStateMachine.SwitchState(new IdleState());
+            playerManager.playerStateMachine.SwitchState(new IdleState());
             return;
         }
 
         // Verifica se alvo está morto
         if (target.Health != null && target.Health.CurrentHealth <= 0)
         {
-            playerManager._playerStateMachine.SwitchState(new IdleState());
+            playerManager.playerStateMachine.SwitchState(new IdleState());
             return;
         }
 
@@ -76,7 +76,7 @@ public class AttackState : StateBase
         // Se alvo está muito longe, cancela
         if (distance > followDistance)
         {
-            playerManager._playerStateMachine.SwitchState(new IdleState());
+            playerManager.playerStateMachine.SwitchState(new IdleState());
             return;
         }
 
@@ -90,20 +90,20 @@ public class AttackState : StateBase
             if (playerManager.sheet != null)
                 speed = playerManager.sheet.Data.TotalSpeed;
 
-            playerManager._playerMotor.Move(localDir, speed);
-            playerManager._playerMotor.Rotation(direction);
+            playerManager.playerMotor.Move(localDir, speed);
+            playerManager.playerMotor.Rotation(direction);
         }
         else
         {
             // Em range: para de mover e executa ataque
-            playerManager._playerMotor.Stop();
+            playerManager.playerMotor.Stop();
 
             // Rotaciona para o alvo
             Vector3 lookDir = (targetPos - playerPos);
             lookDir.y = 0f; // mantém rotação apenas no plano horizontal
             if (lookDir != Vector3.zero)
             {
-                playerManager._playerMotor.Rotation(lookDir.normalized);
+                playerManager.playerMotor.Rotation(lookDir.normalized);
             }
 
             // Executa ataque básico respeitando cooldown
@@ -114,7 +114,7 @@ public class AttackState : StateBase
                 {
                     if (playerManager.skillManager.basicAttackSkill.CanUse())
                     {
-                        var ctx = playerManager.skillManager.CreateContext(playerManager.skillManager.basicAttackSkill.Data);
+                        var ctx = playerManager.skillManager.CreateContext(playerManager.skillManager.basicAttackSkill);
                         playerManager.skillManager.UseBasicAttack(ctx);
 
                         // Define próximo ataque baseado no attack speed
@@ -129,9 +129,9 @@ public class AttackState : StateBase
     public override void ExitState(PlayerManager playerManager)
     {
         // Para movimento ao sair
-        if (playerManager != null && playerManager._playerMotor != null)
+        if (playerManager != null && playerManager.playerMotor != null)
         {
-            playerManager._playerMotor.Stop();
+            playerManager.playerMotor.Stop();
         }
     }
 

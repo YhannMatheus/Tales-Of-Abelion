@@ -63,8 +63,8 @@ public class SkillEffectController
                 }
                 else
                 {
-                    if (context.TargetCharacter != null && PassesTargetFilter(context.TargetCharacter, _data.targetFilter))
-                        ApplyTo(context.TargetCharacter);
+                    if (context.Target.GetComponent<CharacterManager>() != null && PassesTargetFilter(context.Target.GetComponent<CharacterManager>(), _data.targetFilter))
+                        ApplyTo(context.Target.GetComponent<CharacterManager>());
                     else
                         ApplyTo(_caster);
                 }
@@ -83,29 +83,6 @@ public class SkillEffectController
             if (effectData.effectTiming == EffectTiming.Passive)
             {
                 effectData.effectBehavior.Initialize(effectData, _caster, _caster, 1);
-            }
-            else if (effectData.effectTiming == EffectTiming.Aura)
-            {
-                float radius = _data.areaRadius > 0f ? _data.areaRadius : 5f;
-                var cols = Physics.OverlapSphere(_caster.transform.position, radius);
-                foreach (var col in cols)
-                {
-                    if (col == null) continue;
-                    if (col.TryGetComponent<CharacterManager>(out var cm))
-                    {
-                        if (effectData.auraTargetTypes != null && effectData.auraTargetTypes.Length > 0)
-                        {
-                            bool matched = false;
-                            foreach (var t in effectData.auraTargetTypes)
-                            {
-                                if (cm.characterType == t) { matched = true; break; }
-                            }
-                            if (!matched) continue;
-                        }
-
-                        effectData.effectBehavior.Initialize(effectData, cm, _caster, 1);
-                    }
-                }
             }
         }
     }

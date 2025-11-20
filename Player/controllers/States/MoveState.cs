@@ -22,15 +22,15 @@ public class MoveState : StateBase
         var motor = playerManager._playerMotor;
         var transform = playerManager.transform;
 
-        // Permite cancelar movimento com novo clique
-        if (InputManager.Instance != null && InputManager.Instance.interactButton)
+        // Enquanto o botão direito estiver pressionado, atualiza o destino frame-a-frame
+        if (Input.GetMouseButton(1))
         {
             if (playerManager._playerMouseController != null)
             {
                 Vector3 newTarget = playerManager._playerMouseController.GetTargetPosition();
                 GameObject targetObj = playerManager._playerMouseController.GetTargetObject();
 
-                // Se clicou em inimigo, muda para ataque
+                // Se o cursor estiver sobre um inimigo, troca para AttackState
                 if (targetObj != null)
                 {
                     CharacterManager targetChar = targetObj.GetComponent<CharacterManager>();
@@ -41,7 +41,7 @@ public class MoveState : StateBase
                     }
                 }
 
-                // Atualiza destino
+                // Atualiza destino continuamente enquanto o botão estiver pressionado
                 targetPosition = newTarget;
             }
         }

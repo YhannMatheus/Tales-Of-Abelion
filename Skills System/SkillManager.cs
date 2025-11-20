@@ -1,13 +1,15 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 public abstract class SkillManager : MonoBehaviour
 {
     public SkillExecutionController[] skillSlots = new SkillExecutionController[8]; // skils listada como usaveis pelo jogador
     public SkillExecutionController basicAttackSkill;
+    public SkillExecutionController classPassiveSkill;
     public CharacterManager character;
+    public List<Skill> Skills = new List<Skill>();
 
-    // ===== Eventos para UI e integração externa =====
     // Emitido quando uma skill é executada com sucesso
     public event Action<int, SkillContext> OnSkillExecuted;
     // Emitido quando tentativa de usar skill falha (cooldown, energia, etc)
@@ -19,58 +21,17 @@ public abstract class SkillManager : MonoBehaviour
 
     private void Awake()
     {
-        if (character == null)
-        {
-            character = GetComponent<CharacterManager>();
-        }
-        // Bind existing controllers (serializados) com referências de runtime
-        if (skillSlots != null)
-        {
-            for (int i = 0; i < skillSlots.Length; i++)
-            {
-                if (skillSlots[i] != null)
-                {
-                    skillSlots[i].Bind(character, character != null ? character.transform : null);
-                }
-            }
-        }
-        if (basicAttackSkill != null)
-        {
-            basicAttackSkill.Bind(character, character != null ? character.transform : null);
-        }
     }
     
     private void Update()
     {
-        UpdateCooldowns(Time.deltaTime); // Atualiza cooldowns de todas as skills
-        UpdateSkillAnimations(Time.deltaTime); // Atualiza animações de skills em progresso
-        InstructionForUse(); // Verifica inputs para uso de skills
-        ApplyPassiveSkills(); // Aplica efeitos de skills passivas
+        UpdateCooldowns(Time.deltaTime);        // Atualiza cooldowns de todas as skills
+        UpdateSkillAnimations(Time.deltaTime);  // Atualiza animações de skills em progresso
+        InstructionForUse();                    // Verifica inputs para uso de skills
     }
 
     public abstract void InstructionForUse();
-
-    /// Inscrever eventos para requests de spawn de projéteis
-    private void OnEnable()
-    {
-        if (skillSlots == null) return;
-        for (int i = 0; i < skillSlots.Length; i++)
-        {
-            if (skillSlots[i] != null)
-                skillSlots[i].OnRequestSpawnProjectile += HandleSpawnRequest;
-        }
-    }
-
-    /// Dessubscrever eventos para evitar memory leaks
-    private void OnDisable()
-    {
-        if (skillSlots == null) return;
-        for (int i = 0; i < skillSlots.Length; i++)
-        {
-            if (skillSlots[i] != null)
-                skillSlots[i].OnRequestSpawnProjectile -= HandleSpawnRequest;
-        }
-    }
+    public abstract SkillContext CreateContext(SkillExecutionController skillController);
 
     private void UpdateCooldowns(float deltaTime)
     {   
@@ -125,18 +86,8 @@ public abstract class SkillManager : MonoBehaviour
             return;
         }
 
-        // Se não existir controller no slot, crie um novo encapsulando o skill
-        if (skillSlots[slotIndex] == null)
-        {
-            var controller = new SkillExecutionController(newData, character, character != null ? character.transform : null);
-            skillSlots[slotIndex] = controller;
-            // garantir que SkillManager esteja inscrito para requests de spawn
-            controller.OnRequestSpawnProjectile += HandleSpawnRequest;
-        }
-        else
-        {
-            skillSlots[slotIndex].Data = newData;
-        }
+        
+        skillSlots[slotIndex].runtimeSkill.Data = newData;
 
         OnSkillAssigned?.Invoke(slotIndex, newData);
     }
@@ -148,12 +99,7 @@ public abstract class SkillManager : MonoBehaviour
             Debug.LogError($"[SkillManager] Índice de slot inválido: {slotIndex}");
             return;
         }
-
-        if (skillSlots[slotIndex] != null)
-        {
-            // dessubscrever event handlers
-            skillSlots[slotIndex].OnRequestSpawnProjectile -= HandleSpawnRequest;
-        }
+        
         skillSlots[slotIndex] = null;
     }    
 
@@ -185,7 +131,7 @@ public abstract class SkillManager : MonoBehaviour
         }
     }
 
-    protected virtual void ExecuteBasicAttack(SkillContext context)
+    public virtual void UseBasicAttack(SkillContext context)
     {
         if(basicAttackSkill == null)
         {
@@ -196,52 +142,8 @@ public abstract class SkillManager : MonoBehaviour
         basicAttackSkill.TryExecute(context);
     }
 
-    // Método público para executar basic attack (para input/AI)
-    public void UseBasicAttack(SkillContext context)
-    {
-        ExecuteBasicAttack(context);
-    }
 
-    // Handle spawn requests from controllers: instantiate prefab and initialize instance
-    protected virtual void HandleSpawnRequest(SkillExecutionController.ProjectileSpawnRequest req)
-    {
-        if (req.Prefab == null) return;
-
-        GameObject go = Instantiate(req.Prefab, req.Position, req.Rotation);
-        if (go == null) return;
-
-        var instance = go.GetComponent<InstanceBase>();
-        if (instance != null)
-        {
-            instance.Initialize(req.Context, req.Direction, req.HomingTarget, req.Speed, req.Lifetime, req.Behavior);
-        }
-
-        // Ignore collisions between projectile and caster if possible (use instance helper)
-        if (req.Context.Caster != null)
-        {
-            var casterCol = req.Context.Caster.GetComponent<Collider>();
-            var projInstance = go.GetComponent<InstanceBase>();
-            if (casterCol != null && projInstance != null)
-            {
-                projInstance.RegisterIgnoredCollisionWithCaster(casterCol);
-            }
-        }
-    }
-
-    protected virtual void ApplyPassiveSkills()
-    {
-        foreach(var skill in skillSlots)
-        {
-            if(skill == null) continue;
-
-            if(skill.Data != null && skill.Data.skillType == SkillType.Passive)
-            {
-                skill.ExecutePassive();
-            }
-        }
-    }
-
-    // ===== Helpers públicos para UI =====
+    #region Skill Context Helpers
     public float GetCooldownRemaining(int slotIndex)
     {
         if (slotIndex < 0 || slotIndex >= skillSlots.Length || skillSlots[slotIndex] == null)
@@ -272,7 +174,7 @@ public abstract class SkillManager : MonoBehaviour
     {
         if (slotIndex < 0 || slotIndex >= skillSlots.Length || skillSlots[slotIndex] == null)
             return null;
-        return skillSlots[slotIndex].Data;
+        return skillSlots[slotIndex].runtimeSkill.Data;
     }
 
     public bool CanUseSlot(int slotIndex)
@@ -281,4 +183,5 @@ public abstract class SkillManager : MonoBehaviour
             return false;
         return skillSlots[slotIndex].CanUse();
     }
+    #endregion
 }

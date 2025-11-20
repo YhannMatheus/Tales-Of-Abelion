@@ -5,35 +5,56 @@ using System;
 public class PlayerAnimationController
 {
     public Animator animator;
-
+    
     // Hash de parâmetros do Animator (pré-computados para performance)
-    private static readonly int HashIdle = Animator.StringToHash("Idle");
-    private static readonly int HashMove = Animator.StringToHash("Move");
-    private static readonly int HashAttack = Animator.StringToHash("Attack");
-    private static readonly int HashCast = Animator.StringToHash("Cast");
-    private static readonly int HashDie = Animator.StringToHash("Die");
-    private static readonly int HashStun = Animator.StringToHash("Stun");
-    private static readonly int HashMoveSpeed = Animator.StringToHash("MoveSpeed");
-    private static readonly int HashAttackSpeed = Animator.StringToHash("AttackSpeed");
-    private static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
+    public static readonly int HashIdle = Animator.StringToHash("Idle");
+    public static readonly int HashMove = Animator.StringToHash("Move");
+    public static readonly int HashAttack = Animator.StringToHash("Attack");
+    public static readonly int HashCast = Animator.StringToHash("Cast");
+    public static readonly int HashDie = Animator.StringToHash("Die");
+    public static readonly int HashStun = Animator.StringToHash("Stun");
+    public static readonly int HashMoveSpeed = Animator.StringToHash("MoveSpeed");
+    public static readonly int HashAttackSpeed = Animator.StringToHash("AttackSpeed");
+    public static readonly int HashIsGrounded = Animator.StringToHash("IsGrounded");
+    public static readonly int HashTakeDamage = Animator.StringToHash("TakeDamage");
 
     // Cache do estado atual
     private StateBase _currentState;
     private bool _isMoving = false;
     private bool _isGrounded = true;
 
-    /// <summary>
     /// Inicializa o controlador de animação
-    /// </summary>
     public void Initialize(Animator anim)
     {
         animator = anim;
         if (animator != null)
         {
-            // Define valores iniciais
-            animator.SetFloat(HashMoveSpeed, 0f);
-            animator.SetFloat(HashAttackSpeed, 1f);
-            animator.SetBool(HashIsGrounded, true);
+            // cache de parâmetros existentes para evitar chamadas em params inexistentes
+            _animParamNames = new System.Collections.Generic.HashSet<string>();
+            foreach (var p in animator.parameters)
+                _animParamNames.Add(p.name);
+
+            // Define valores iniciais somente se os parâmetros existirem
+            SafeSetFloat("MoveSpeed", HashMoveSpeed, 0f);
+            SafeSetFloat("AttackSpeed", HashAttackSpeed, 1f);
+            SafeSetBool("IsGrounded", HashIsGrounded, true);
+
+            // Verifica se há um RuntimeAnimatorController atribuído
+            if (animator.runtimeAnimatorController == null)
+            {
+                Debug.LogWarning("[PlayerAnimationController] Animator não tem RuntimeAnimatorController atribuído.");
+            }
+            else
+            {
+                // Rebind para garantir inicialização correta do runtime
+                animator.enabled = true;
+                animator.Rebind();
+                animator.Update(0f);
+
+                // Se existir o trigger Idle, dispare para garantir que o state inicial seja acionado
+                if (HasParam("Idle"))
+                    SafeSetTrigger("Idle", HashIdle);
+            }
         }
     }
 
@@ -46,12 +67,12 @@ public class PlayerAnimationController
         _isMoving = isMoving;
 
         // Atualiza parâmetros de movimento
-        animator.SetFloat(HashMoveSpeed, isMoving ? 1f : 0f);
+        SafeSetFloat("MoveSpeed", HashMoveSpeed, isMoving ? 1f : 0f);
 
         // Atualiza attack speed se houver personagem
         if (character != null)
         {
-            animator.SetFloat(HashAttackSpeed, character.Data.TotalAttackSpeed);
+            SafeSetFloat("AttackSpeed", HashAttackSpeed, character.Data.TotalAttackSpeed);
         }
 
         // Se mudou de estado, dispara trigger apropriado
@@ -70,31 +91,13 @@ public class PlayerAnimationController
         // Reseta todos os triggers para evitar conflitos
         ResetAllTriggers();
 
-        // Dispara trigger baseado no tipo do estado
-        if (newState is IdleState)
-        {
-            animator.SetTrigger(HashIdle);
-        }
-        else if (newState is MoveState)
-        {
-            animator.SetTrigger(HashMove);
-        }
-        else if (newState is AttackState)
-        {
-            animator.SetTrigger(HashAttack);
-        }
-        else if (newState is CastState)
-        {
-            animator.SetTrigger(HashCast);
-        }
-        else if (newState is StunState)
-        {
-            animator.SetTrigger(HashStun);
-        }
-        else if (newState is DeadState)
-        {
-            animator.SetTrigger(HashDie);
-        }
+        // Dispara trigger baseado no tipo do estado (somente se o trigger existir)
+        if (newState is IdleState) SafeSetTrigger("Idle", HashIdle);
+        else if (newState is MoveState) SafeSetTrigger("Move", HashMove);
+        else if (newState is AttackState) SafeSetTrigger("Attack", HashAttack);
+        else if (newState is CastState) SafeSetTrigger("Cast", HashCast);
+        else if (newState is StunState) SafeSetTrigger("Stun", HashStun);
+        else if (newState is DeadState) SafeSetTrigger("Die", HashDie);
     }
 
     /// Reseta todos os triggers do animator
@@ -102,12 +105,12 @@ public class PlayerAnimationController
     {
         if (animator == null) return;
 
-        animator.ResetTrigger(HashIdle);
-        animator.ResetTrigger(HashMove);
-        animator.ResetTrigger(HashAttack);
-        animator.ResetTrigger(HashCast);
-        animator.ResetTrigger(HashStun);
-        animator.ResetTrigger(HashDie);
+        SafeResetTrigger("Idle", HashIdle);
+        SafeResetTrigger("Move", HashMove);
+        SafeResetTrigger("Attack", HashAttack);
+        SafeResetTrigger("Cast", HashCast);
+        SafeResetTrigger("Stun", HashStun);
+        SafeResetTrigger("Die", HashDie);
     }
 
     /// Atualiza estado de grounded
@@ -116,7 +119,7 @@ public class PlayerAnimationController
         _isGrounded = grounded;
         if (animator != null)
         {
-            animator.SetBool(HashIsGrounded, grounded);
+            SafeSetBool("IsGrounded", HashIsGrounded, grounded);
         }
     }
 
@@ -127,5 +130,58 @@ public class PlayerAnimationController
         {
             animator.SetTrigger(triggerName);
         }
+    }
+
+    //aumento gradual do float Speed na animação
+    public void IncreaseSpeed(float amount, float maxSpeed)
+    {
+        if (animator == null) return;
+
+        float currentSpeed = SafeGetFloat("MoveSpeed", HashMoveSpeed);
+        float newSpeed = Mathf.Min(currentSpeed + amount, maxSpeed);
+        SafeSetFloat("MoveSpeed", HashMoveSpeed, newSpeed);
+    }
+
+    // cache dos nomes de parâmetros existentes no Animator
+    private System.Collections.Generic.HashSet<string> _animParamNames;
+
+    private bool HasParam(string name)
+    {
+        return _animParamNames != null && _animParamNames.Contains(name);
+    }
+
+    private void SafeSetFloat(string name, int hash, float value)
+    {
+        if (animator == null) return;
+        if (!HasParam(name)) return;
+        animator.SetFloat(hash, value);
+    }
+
+    private float SafeGetFloat(string name, int hash)
+    {
+        if (animator == null) return 0f;
+        if (!HasParam(name)) return 0f;
+        return animator.GetFloat(hash);
+    }
+
+    private void SafeSetBool(string name, int hash, bool value)
+    {
+        if (animator == null) return;
+        if (!HasParam(name)) return;
+        animator.SetBool(hash, value);
+    }
+
+    private void SafeSetTrigger(string name, int hash)
+    {
+        if (animator == null) return;
+        if (!HasParam(name)) return;
+        animator.SetTrigger(hash);
+    }
+
+    private void SafeResetTrigger(string name, int hash)
+    {
+        if (animator == null) return;
+        if (!HasParam(name)) return;
+        animator.ResetTrigger(hash);
     }
 }

@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 [System.Serializable]
 public class PlayerMotor
 {   
-    [Header("Movement Settings")]
+    [Header("Physics Settings")]
     public float gravity = -9.81f;
     private float _verticalVelocity = 0f;
     public float groundedStick = 0f;

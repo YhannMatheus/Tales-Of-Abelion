@@ -6,124 +6,79 @@ using UnityEngine;
 public class SkillExecutionController
 {
     // ----- Config / Referências -----
-    public SkillData data = null;
+    // runtime Skill wrapper (contém SkillruntimeSkill.Data + estado mutável)
+    public Skill runtimeSkill = null;
     protected CharacterManager character;
     protected Transform castPoint;
 
     // ----- Tempo de execução -----
-    private float _cooldownTimer = 0f;
-    private string _lastFailureReason = "";
-    // Runtime for animation-hit sync
-    private List<float> _pendingHitTimes;
-    private SkillContext _currentContext;
-    // Passivos aplicados uma vez
-    private bool _passivesApplied = false;
+    private float _cooldownRemainingSeconds = 0f;
+    private string _lastFailureReasonMessage = "";
     
-    // Auxiliares responsáveis por efeitos e tempos/cooldown
-    private SkillEffectController _effectController;
-    private SkillTimesController _timesController;
-    private SkillAnimationController _animationController;
+    
+    // Controllers auxiliares (efeitos, tempos e animação) encapsulados
+    private SkillEffectController _skillEffectController;
+    private SkillTimesController _skillTimesController;
+    private SkillAnimationController _skillAnimationController;
 
     // ----- Propriedades -----
-    public bool IsOnCooldown => _timesController != null ? _timesController.IsOnCooldown : _cooldownTimer > 0f;
-    public float CooldownRemaining => _timesController != null ? _timesController.CooldownRemaining : Mathf.Max(0f, _cooldownTimer);
-    public float CooldownPercent => _timesController != null ? _timesController.CooldownPercent : (data != null && data.cooldownTime > 0f ? (Mathf.Clamp01(_cooldownTimer / data.cooldownTime)) : 0f);
-    // Expor SkillData para uso externo (ex.: SkillManager)
-    public SkillData Data
-    {
-        get => data;
-        set
-        {
-            data = value;
-            _passivesApplied = false; // reset ao trocar skill
-        }
-    }
-
-    // ----- Eventos (integração com o Manager) -----
-    public struct ProjectileSpawnRequest
-    {
-        public InstanceContext Context;
-        public GameObject Prefab;
-        public Vector3 Position;
-        public Quaternion Rotation;
-        public Vector3 Direction;
-        public CharacterManager HomingTarget;
-        public float Speed;
-        public float Lifetime;
-        public ProjectileBehavior Behavior;
-    }
-
-    public event Action<ProjectileSpawnRequest> OnRequestSpawnProjectile;
-
-    // ----- Construtor -----
-    public SkillExecutionController(SkillData skillData, CharacterManager characterManager, Transform castTransform)
-    {
-        data = skillData;
-        character = characterManager;
-        castPoint = castTransform;
-        _effectController = new SkillEffectController(data, character);
-        _timesController = new SkillTimesController(data, character);
-        _animationController = new SkillAnimationController();
-    }
-
-    // Liga referências de runtime (usado pelo SkillManager para injetar Character e pontos de cast)
-    public void Bind(CharacterManager characterManager, Transform castTransform)
-    {
-        character = characterManager;
-        castPoint = castTransform;
-        // recreate or update helpers
-        _effectController = new SkillEffectController(data, character);
-        _timesController = new SkillTimesController(data, character);
-        if (_animationController == null)
-            _animationController = new SkillAnimationController();
-    }
-
+    public bool IsOnCooldown => _skillTimesController != null ? _skillTimesController.IsOnCooldown : _cooldownRemainingSeconds > 0f;
+    public float CooldownRemaining => _skillTimesController != null ? _skillTimesController.CooldownRemaining : Mathf.Max(0f, _cooldownRemainingSeconds);
+    public float CooldownPercent => _skillTimesController != null ? _skillTimesController.CooldownPercent : (runtimeSkill.Data != null && runtimeSkill.Data.cooldownTime > 0f ? (Mathf.Clamp01(_cooldownRemainingSeconds / runtimeSkill.Data.cooldownTime)) : 0f);
+    
+    #region Execuções E metodos Publicos
     // TryExecute é o ponto de entrada principal para execução de skills ativas
-
-    // ----- TryExecute (entrada que inicia a execução) -----
     public bool TryExecute(SkillContext context)
     {
         if (!CanUse()) return false;
 
-        if (data.energyCost > 0)
+        var d = runtimeSkill.Data;
+        if (d == null)
         {
-            if (!character.TrySpendEnergy(data.energyCost))
+            _lastFailureReasonMessage = "Skill não configurada";
+            return false;
+        }
+
+        if (d.energyCost > 0)
+        {
+            if (!character.TrySpendEnergy(d.energyCost))
             {
-                _lastFailureReason = "Falha ao gastar energia";
+                _lastFailureReasonMessage = "Falha ao gastar energia";
                 return false;
             }
         }
 
         // Dispara animação da skill via SkillAnimationController
-        if (data.animation != null && character != null)
+        if (d.animation != null && character != null)
         {
             var animator = character.GetComponentInChildren<Animator>();
-            if (animator != null)
-            {
-                float attackSpeed = character.Data.TotalAttackSpeed;
-                _animationController?.Play(animator, data, attackSpeed, null);
-            }
+                if (animator != null)
+                {
+                    float attackSpeed = character.Data.TotalAttackSpeed;
+                    _skillAnimationController?.Play(animator, d, attackSpeed, null);
+                }
         }
 
         // Prepara InstanceContext com valores finais que serão aplicados pela instância/projétil
-        var instanceCtx = new InstanceContext
-        {
-            SkillData = data,
-            Caster = character,
-            TargetCharacter = context.TargetCharacter != null ? context.TargetCharacter.gameObject : null,
-            DamageType = data.damageType,
-            totalDamageAmount = CalculateDamage(context),
-            totalHealAmount = context.TargetCharacter != null ? CalculateHeal(context, context.TargetCharacter) : 0f,
-            consumedOnHit = data.consumeOnHit
-        };
+            var instanceCtx = new InstanceContext
+            {
+                SkillData = d,
+                Caster = character,
+                TargetCharacter = context.Target,
+                DamageType = d.damageType,
+                totalDamageAmount = CalculateDamage(context),
+                totalHealAmount = context.Target != null && context.Target.GetComponent<CharacterManager>() != null ? CalculateHeal(context, context.Target.GetComponent<CharacterManager>()) : 0f,
+                consumedOnHit = d.consumeOnHit
+            };
+
         // Preencher lista de efeitos que a instância carregará (somente OnHit/OverTime)
         instanceCtx.Effects = new List<EffectData>();
-        if (data.Effects != null)
+        if (d.Effects != null)
         {
-            foreach (var ef in data.Effects)
+            foreach (var ef in d.Effects)
             {
                 if (ef == null) continue;
-                if (ef.effectTiming == EffectTiming.OnHit || ef.effectTiming == EffectTiming.OverTime)
+                if (ef.effectTiming == EffectTiming.OnHit)
                     instanceCtx.Effects.Add(ef);
             }
         }
@@ -131,38 +86,21 @@ public class SkillExecutionController
         instanceCtx.TargetPosition = context.TargetPosition;
 
         // Se existe prefab de skill e velocidade de projétil configurada, solicita spawn ao manager.
-        if (data.skillPrefab != null && data.projectileSpeed > 0f)
+        if (d.skillPrefab != null && d.projectileSpeed > 0f)
         {
-            var req = new ProjectileSpawnRequest
-            {
-                Context = instanceCtx,
-                Prefab = data.skillPrefab,
-                Position = castPoint != null ? castPoint.position : (context.TargetPosition != Vector3.zero ? context.TargetPosition : character.transform.position),
-                Rotation = castPoint != null ? castPoint.rotation : Quaternion.identity,
-                Direction = (context.TargetPosition != Vector3.zero)
-                    ? (context.TargetPosition - (castPoint != null ? castPoint.position : character.transform.position)).normalized
-                    : (castPoint != null ? castPoint.forward : character.transform.forward),
-                HomingTarget = context.TargetCharacter,
-                Speed = data.projectileSpeed,
-                Lifetime = data.projectileLifetime,
-                Behavior = data.projectileBehavior
-            };
-
-            if (OnRequestSpawnProjectile != null)
-            {
-                OnRequestSpawnProjectile.Invoke(req);
-            }
+            
         }
         else
         {
             // Aplica efeitos imediatamente (cura, buff, etc.) ou aguarda eventos de hit se houver tempos definidos
-            if (data.hitEventNormalizedTimes != null && data.hitEventNormalizedTimes.Count > 0)
+            if (d.hitEventNormalizedTimes != null && d.hitEventNormalizedTimes.Count > 0)
             {
                 // efeitos do tipo OnHit serão aplicados pela sincronização de animação quando os tempos forem alcançados
             }
             else
             {
-                ApplySkillEffects(context, EffectTiming.OnCast);
+                // usar o controller de efeitos diretamente (sem wrapper)
+                _skillEffectController?.ApplySkillEffects(context, EffectTiming.OnCast);
             }
         }
 
@@ -172,183 +110,79 @@ public class SkillExecutionController
         return true;
     }
 
+    public void TryExecutePassive(SkillContext context)
+    {
+        // Aplica efeitos passivos imediatamente
+        _skillEffectController?.ApplySkillEffects(context, EffectTiming.Passive);
+    }
+    #endregion
+    
+    
     // ----- Cooldown / Tempo de recarga -----
     private void StartCooldown()
     {
-        if (_timesController != null) _timesController.StartCooldown();
-        else _cooldownTimer = data != null ? data.cooldownTime : 0f;
+        if (_skillTimesController != null) _skillTimesController.StartCooldown();
+        else _cooldownRemainingSeconds = runtimeSkill.Data != null ? runtimeSkill.Data.cooldownTime : 0f;
     }
 
     public void TickCooldown(float deltaTime)
     {
-        if (_timesController != null) { _timesController.TickCooldown(deltaTime); return; }
-        if (_cooldownTimer <= 0f) return;
-        _cooldownTimer = Mathf.Max(0f, _cooldownTimer - deltaTime);
+        if (_skillTimesController != null) { _skillTimesController.TickCooldown(deltaTime); return; }
+        if (_cooldownRemainingSeconds <= 0f) return;
+        _cooldownRemainingSeconds = Mathf.Max(0f, _cooldownRemainingSeconds - deltaTime);
     }
 
-    // ----- Aplicar efeitos (cura, buffs/debuffs) -----
-    // 'when' indica o timing de aplicação (OnCast, OnHit, OverTime, Passive, Aura)
-    private void ApplySkillEffects(SkillContext context, EffectTiming when = EffectTiming.OnHit)
-    {
-        if (_effectController != null)
-        {
-            _effectController.ApplySkillEffects(context, when);
-        }
-    }
 
-    // Verifica filtro de alvos com base em CharacterType
-    private bool PassesTargetFilter(CharacterManager target, TargetFilter filter)
-    {
-        if (target == null) return false;
-        switch (filter)
-        {
-            case TargetFilter.All:
-                return true;
-            case TargetFilter.Self:
-                return target == character;
-            case TargetFilter.AllExceptSelf:
-                return target != character;
-            case TargetFilter.Allies:
-                return IsAlly(target);
-            case TargetFilter.Enemies:
-                return !IsAlly(target) && target != character;
-            default:
-                return true;
-        }
-    }
-
-    private bool IsAlly(CharacterManager other)
-    {
-        if (other == null) return false;
-        if (character == null) return false;
-        if (other == character) return true;
-        // Consider Player <-> Ally as same team
-        if (character.characterType == other.characterType) return true;
-        if ((character.characterType == CharacterType.Player && other.characterType == CharacterType.Ally) ||
-            (character.characterType == CharacterType.Ally && other.characterType == CharacterType.Player)) return true;
-        return false;
-    }
-
-    public void ExecutePassive()
-    {
-        if (_passivesApplied) return;
-        _effectController?.ExecutePassive();
-        _passivesApplied = true;
-    }
-
-    // ExecuteToggle/AutoCast removidos - use TryExecute diretamente
-
-    // ----- Integração com animação -----
     private void StartAnimation(SkillContext context, Action onComplete = null, float explicitAttackSpeed = -1f)
     {
         // delegar para SkillTimesController; callback onHit aplica efeitos via SkillEffectController
-        _timesController?.StartAnimation(context, (ctx) => ApplySkillEffects(ctx, EffectTiming.OnHit), onComplete, explicitAttackSpeed);
+        _skillTimesController?.StartAnimation(context, (ctx) => _skillEffectController?.ApplySkillEffects(ctx, EffectTiming.OnHit), onComplete, explicitAttackSpeed);
     }
 
     public void TickAnimation(float deltaTime)
     {
-        // avança o controlador de tempos/animação
-        _timesController?.TickAnimation(deltaTime);
-        // atualiza PlayableGraph da animação de skill
-        _animationController?.Tick(deltaTime);
+        _skillTimesController?.TickAnimation(deltaTime);
+        _skillAnimationController?.Tick(deltaTime);
     }
 
-    public void StopAnimation()
-    {
-        // interrompe animação e limpa estado de timing
-        _timesController?.StopAnimation();
-    }
-
-    /// <summary>
-    /// Tenta interromper a animação/execução atual (por exemplo quando o player se move).
-    /// Retorna true se a animação foi cancelada. A interrupção respeita o castTime
-    /// definido no SkillData (não cancela se já passou do tempo mínimo).
-    /// </summary>
-    public bool TryInterruptAnimation()
-    {
-        if (_timesController == null) return false;
-        return _timesController.TryInterruptAnimation();
-    }
-
-    // Animation progress handled by SkillTimesController
-
-    // ----- Cálculos / Auxiliares -----
-    
-    /// <summary>
-    /// Calcula velocidade de playback da animação (público para eventos)
-    /// </summary>
-    public float CalculatePlaybackSpeed()
-    {
-        return CalculatePlaybackSpeed(data, character, -1f);
-    }
-
-    private float CalculatePlaybackSpeed(SkillData data, CharacterManager character, float explicitAttackSpeed = -1f)
-    {
-        if (data == null || data.animation == null) return 1f;
-
-        float clipLength = data.animation.length;
-
-        float attackSpeed = explicitAttackSpeed > 0f ? explicitAttackSpeed : (character != null ? character.Data.TotalAttackSpeed : 1f);
-
-        float desiredDuration = 0f;
-        if (data.targetDurationOverride > 0f)
-        {
-            desiredDuration = data.targetDurationOverride;
-        }
-        else if (data.playbackMode == PlaybackMode.FitToCastTime && data.castTime > 0f)
-        {
-            desiredDuration = data.castTime;
-        }
-        else if (data.playbackMode == PlaybackMode.FitToAttackSpeed && data.useAttackSpeedForPlayback)
-        {
-            desiredDuration = 1f / Mathf.Max(0.0001f, attackSpeed);
-        }
-        else
-        {
-            desiredDuration = data.castTime > 0f ? data.castTime : clipLength;
-        }
-
-        float playbackSpeed = clipLength / Mathf.Max(0.0001f, desiredDuration);
-        playbackSpeed *= Mathf.Max(0.0001f, data.playbackSpeedMultiplier);
-        playbackSpeed = Mathf.Clamp(playbackSpeed, data.minPlaybackSpeed, data.maxPlaybackSpeed);
-
-        return playbackSpeed;
-    }
-
+    #region  Calculo de valores de dano/curas
     private float CalculateHeal(SkillContext context, CharacterManager target)
     {
-        float heal = data.baseHeal + (data.incrementalHealPerLevel * (context.SkillLevel - 1));
+        var d = runtimeSkill.Data;
+        if (d == null) return 0f;
+
+        float heal = d.baseHeal + (d.incrementalHealPerLevel * (context.SkillLevel - 1));
         float casterMag = character.Data.TotalMagicalDamage;
 
-        switch (data.healModifierOperation)
+        switch (d.healModifierOperation)
         {
             case ModifierOperation.Add:
                 heal += casterMag;
                 break;
             case ModifierOperation.Multiply:
-                heal += casterMag * data.healModifierValue;
+                heal += casterMag * d.healModifierValue;
                 break;
             case ModifierOperation.Override:
                 heal = casterMag > 0 ? casterMag : heal;
                 break;
         }
 
-        switch (data.healScaling)
+        switch (d.healScaling)
         {
             case HealScaling.FlatAmount:
                 break;
             case HealScaling.PercentMaxHP:
-                if (target != null) heal += target.Health.MaxHealth * data.healModifierValue;
+                if (target != null) heal += target.Health.MaxHealth * d.healModifierValue;
                 break;
             case HealScaling.PercentMissingHP:
                 if (target != null)
                 {
                     float missing = Mathf.Max(0f, target.Health.MaxHealth - target.Health.CurrentHealth);
-                    heal += missing * data.healModifierValue;
+                    heal += missing * d.healModifierValue;
                 }
                 break;
             case HealScaling.SpellPower:
-                heal += casterMag * data.healModifierValue;
+                heal += casterMag * d.healModifierValue;
                 break;
             case HealScaling.None:
             default:
@@ -360,46 +194,49 @@ public class SkillExecutionController
 
     private float CalculateDamage(SkillContext context)
     {
-        float damage = data.baseDamage + (data.incrementalDamagePerLevel * (context.SkillLevel - 1));
+        var d = runtimeSkill.Data;
+        if (d == null) return 0f;
+
+        float damage = d.baseDamage + (d.incrementalDamagePerLevel * (context.SkillLevel - 1));
         float casterPhys = character.Data.TotalPhysicalDamage;
         float casterMag = character.Data.TotalMagicalDamage;
 
-        switch (data.damageType)
+        switch (d.damageType)
         {
             case DamageType.Physical:
-                ApplyStatComponent(ref damage, casterPhys, data.damageModifierValue, data.healModifierOperation);
+                ApplyStatComponent(ref damage, casterPhys, d.damageModifierValue, d.healModifierOperation);
                 break;
             case DamageType.Magical:
-                ApplyStatComponent(ref damage, casterMag, data.damageModifierValue, data.healModifierOperation);
+                ApplyStatComponent(ref damage, casterMag, d.damageModifierValue, d.healModifierOperation);
                 break;
             case DamageType.Mixed:
                 float physComp = 0f;
                 float magComp = 0f;
-                ApplyStatComponent(ref physComp, casterPhys, data.damageModifierValue, data.healModifierOperation);
-                ApplyStatComponent(ref magComp, casterMag, data.damageModifierValue, data.healModifierOperation);
+                ApplyStatComponent(ref physComp, casterPhys, d.damageModifierValue, d.healModifierOperation);
+                ApplyStatComponent(ref magComp, casterMag, d.damageModifierValue, d.healModifierOperation);
                 damage += physComp + magComp;
                 break;
             case DamageType.True:
                 return Mathf.Max(0f, damage);
         }
 
-        switch (data.damageScaling)
+        switch (d.damageScaling)
         {
             case DamageScaling.Health:
-                damage += character.Health.MaxHealth * data.characterLifePercentInfluence;
+                damage += character.Health.MaxHealth * d.characterLifePercentInfluence;
                 break;
             case DamageScaling.MissingHealth:
                 float missingHealth = Mathf.Max(0f, character.Health.MaxHealth - character.Health.CurrentHealth);
-                damage += missingHealth * data.characterLifePercentInfluence;
+                damage += missingHealth * d.characterLifePercentInfluence;
                 break;
             case DamageScaling.TargetHealth:
-                if (context.TargetCharacter != null) damage += context.TargetCharacter.Health.MaxHealth * data.characterLifePercentInfluence;
+                if (context.Target != null) damage += context.Target.GetComponent<CharacterManager>().Health.MaxHealth * d.characterLifePercentInfluence;
                 break;
             case DamageScaling.TargetMissingHealth:
-                if (context.TargetCharacter != null)
+                if (context.Target != null)
                 {
-                    float targetMissing = Mathf.Max(0f, context.TargetCharacter.Health.MaxHealth - context.TargetCharacter.Health.CurrentHealth);
-                    damage += targetMissing * data.characterLifePercentInfluence;
+                    float targetMissing = Mathf.Max(0f, context.Target.GetComponent<CharacterManager>().Health.MaxHealth - context.Target.GetComponent<CharacterManager>().Health.CurrentHealth);
+                    damage += targetMissing * d.characterLifePercentInfluence;
                 }
                 break;
             case DamageScaling.None:
@@ -409,13 +246,13 @@ public class SkillExecutionController
 
         if (IsCriticalHit())
         {
-            switch (data.criticalDamageType)
+            switch (d.criticalDamageType)
             {
                 case CriticalDamageType.FlatIncrease:
-                    damage += data.criticalDamageValue;
+                    damage += d.criticalDamageValue;
                     break;
                 case CriticalDamageType.PercentageIncrease:
-                    damage *= 1f + data.criticalDamageValue / 100f;
+                    damage *= 1f + d.criticalDamageValue / 100f;
                     break;
             }
         }
@@ -444,29 +281,36 @@ public class SkillExecutionController
         float critChancePercent = character.Data.TotalCriticalChance;
         return UnityEngine.Random.value < (critChancePercent / 100f);
     }
-
+    #endregion
+    
     public bool CanUse()
     {
-        _lastFailureReason = "";
+        _lastFailureReasonMessage = "";
         
-        if (data == null)
+        if (runtimeSkill.Data == null)
         {
-            _lastFailureReason = "Skill não configurada";
+            _lastFailureReasonMessage = "Skill não configurada";
             return false;
         }
         if (IsOnCooldown)
         {
-            _lastFailureReason = $"Em cooldown ({CooldownRemaining:F1}s restantes)";
+            _lastFailureReasonMessage = $"Em cooldown ({CooldownRemaining:F1}s restantes)";
             return false;
         }
         if (character == null)
         {
-            _lastFailureReason = "Personagem não atribuído";
+            _lastFailureReasonMessage = "Personagem não atribuído";
             return false;
         }
-        if (data.energyCost > 0 && (character.Energy == null || !character.Energy.HasEnoughEnergy(data.energyCost)))
+        var d = runtimeSkill.Data;
+        if (d == null)
         {
-            _lastFailureReason = "Energia insuficiente";
+            _lastFailureReasonMessage = "Skill não configurada";
+            return false;
+        }
+        if (d.energyCost > 0 && (character.Energy == null || !character.Energy.HasEnoughEnergy(d.energyCost)))
+        {
+            _lastFailureReasonMessage = "Energia insuficiente";
             return false;
         }
         return true;
@@ -474,6 +318,6 @@ public class SkillExecutionController
 
     public string GetLastFailureReason()
     {
-        return string.IsNullOrEmpty(_lastFailureReason) ? "Não pode usar agora" : _lastFailureReason;
+        return string.IsNullOrEmpty(_lastFailureReasonMessage) ? "Não pode usar agora" : _lastFailureReasonMessage;
     }
 }

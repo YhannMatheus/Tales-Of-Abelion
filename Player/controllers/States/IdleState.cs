@@ -12,7 +12,7 @@ public class IdleState : StateBase
         if (playerManager == null) return;
 
         // Clique direito para mover (estilo MOBA/ARPG)
-        if (InputManager.Instance != null && InputManager.Instance.interactButton)
+        if (Input.GetMouseButtonDown(1))
         {
             if (playerManager._playerMouseController != null)
             {

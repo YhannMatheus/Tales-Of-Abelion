@@ -123,6 +123,13 @@ public class CharacterManager : MonoBehaviour
     {
         characterData.characterClass = classData;
         characterData.characterRace = raceData;
+
+        // Atribui o RuntimeAnimatorController da classe imediatamente à ficha do personagem
+        // Isso garante que quem criar o personagem (ex: Player) já tenha acesso ao controller
+        if (classData != null)
+        {
+            characterData.animatorController = classData.animatorController;
+        }
     }
 
     /// Define configurações de regeneração (usado por IAManager)

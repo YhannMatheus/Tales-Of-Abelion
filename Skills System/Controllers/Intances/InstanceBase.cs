@@ -105,7 +105,7 @@ public abstract class InstanceBase : MonoBehaviour
         foreach (var effect in Context.Effects)
         {
             if (effect == null || effect.effectBehavior == null) continue;
-            if (effect.effectTiming == EffectTiming.OnHit || effect.effectTiming == EffectTiming.OverTime)
+            if (effect.effectTiming == EffectTiming.OnHit)
             {
                 effect.effectBehavior.Initialize(effect, target, Context.Caster, Context.SkillLevel);
             }
